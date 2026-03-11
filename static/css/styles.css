@@ -1,0 +1,24 @@
+.beige {
+    background-color: beige;
+}
+
+.table-striped {
+  --bs-table-striped-bg: rgb(203, 203, 180);
+}
+
+
+.table {
+  --bs-table-bg: beige; 
+  border: solid 2px;
+}
+
+.date-column {
+  width: 100px;
+  max-width: 100px;
+}
+
+.date-column input {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}

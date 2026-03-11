@@ -1,0 +1,288 @@
+{% extends "layout.html" %}
+{% block content %}
+
+<style>
+    .transaction-row {
+        cursor: pointer;
+    }
+    .transaction-row:hover {
+        filter: brightness(0.95);
+    }
+    .expand-row {
+        display: none;
+    }
+    .expand-row.open {
+        display: table-row;
+    }
+    .expand-row > td {
+        padding: 1rem 1.5rem;
+        background-color: #f8f9fa;
+        border-bottom: 2px solid #dee2e6;
+        /* prevent column resize */
+        width: 0;
+        white-space: nowrap;
+    }
+    .expand-inner {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        align-items: flex-end;
+    }
+    .expand-inner .field {
+        display: flex;
+        flex-direction: column;
+        min-width: 140px;
+    }
+    .expand-inner .field.wide {
+        min-width: 220px;
+    }
+    .unreviewed {
+        background-color: #fff3cd !important;
+    }
+</style>
+
+<form method="get" class="mb-3 d-flex gap-2 align-items-center justify-content-center">
+    <label for="type">Type:</label>
+    <select id="type" name="type" class="form-control w-auto">
+        <option value="purchases" {% if type == "purchases" %}selected{% endif %}>Purchases</option>
+        <option value="incomes" {% if type == "incomes" %}selected{% endif %}>Incomes</option>
+    </select>
+
+    <label for="year">Year:</label>
+    <input type="number" id="year" name="year"
+           value="{{ year or default_year }}" min="2000" max="2100" class="form-control w-auto">
+
+    <label for="month">Month:</label>
+    <input type="number" id="month" name="month"
+           value="{{ month or default_month }}" min="1" max="12" class="form-control w-auto">
+
+    <button type="submit" class="btn btn-primary">Filter</button>
+    <a href="{{ request.url.path }}" class="btn btn-secondary">Clear</a>
+</form>
+
+<div class="table-responsive d-flex justify-content-center">
+    <table class="table table-striped w-auto beige">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Store</th>
+                <th class="text-end">Amount</th>
+                <th>Account</th>
+                <th>Budget Category</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <!-- Main row -->
+            <tr class="transaction-row {% if not row.vendor_id and 'check #' not in row.orig_description %}unreviewed{% endif %}"
+                id="row-{{ row.id }}"
+                onclick="toggleExpand('{{ row.id }}')">
+                <td class="date-column">{{ row.date }}</td>
+                <td style="width: 300px;">{{ row.description | title }}</td>
+                <td style="width: 100px;" class="text-end">${{ '%.2f'|format(row.amount) }}</td>
+                <td style="width: 100px;">{{ row.account }}</td>
+                <td id="category-{{ row.id }}">{{ row.budget_category | title if row.budget_category else '—' }}</td>
+            </tr>
+
+            <!-- Expandable edit row -->
+            <tr class="expand-row" id="expand-{{ row.id }}">
+                <td colspan="5">
+                    <div class="expand-inner">
+                        <div class="field">
+                            <label class="form-label fw-semibold mb-1">Date</label>
+                            <input type="date" class="form-control form-control-sm"
+                                   id="edit-date-{{ row.id }}" value="{{ row.date }}">
+                        </div>
+                        <div class="field wide">
+                            <label class="form-label fw-semibold mb-1">Store</label>
+                            <input type="text" class="form-control form-control-sm"
+                                id="edit-desc-{{ row.id }}" value="{{ row.description | title }}">
+                        </div>
+                        <div class="field wide">
+                            <label class="form-label fw-semibold mb-1">Original Bank Description</label>
+                            <input type="text" class="form-control form-control-sm font-monospace"
+                                   value="{{ row.orig_description }}" disabled>
+                        </div>
+                        <div class="field">
+                            <label class="form-label fw-semibold mb-1">Amount</label>
+                            <input type="text" class="form-control form-control-sm"
+                                value="${{ '%.2f'|format(row.amount) }}" disabled>
+                        </div>
+                        <div class="field">
+                            <label class="form-label fw-semibold mb-1">Account</label>
+                            <input type="text" class="form-control form-control-sm"
+                                   value="{{ row.account }}" disabled>
+                        </div>
+                        <div class="field wide">
+                            <label class="form-label fw-semibold mb-1">Budget Category</label>
+                            <select class="form-select form-select-sm"
+                                    id="edit-budget-{{ row.id }}"
+                                    onchange="toggleNewCategory(this, '{{ row.id }}')">
+                                <option value="">-- Select Category --</option>
+                                {% for item in budget_items %}
+                                <option value="{{ item.id }}"
+                                    {% if row.budget_item_id == item.id %}selected{% endif %}>
+                                    {{ item.name }}
+                                </option>
+                                {% endfor %}
+                                <option value="__new__">+ Add new category...</option>
+                            </select>
+                        </div>
+                        <div class="field wide" id="new-category-field-{{ row.id }}" style="display:none;">
+                            <label class="form-label fw-semibold mb-1">New Category Name</label>
+                            <input type="text" class="form-control form-control-sm"
+                                   id="new-category-{{ row.id }}" placeholder="e.g. Entertainment">
+                        </div>
+                        <div class="field d-flex gap-2 align-items-end">
+                            <button class="btn btn-primary btn-sm"
+                                    onclick="saveTransaction(event, '{{ row.id }}')">Save</button>
+                            <button class="btn btn-secondary btn-sm"
+                                    onclick="closeExpand(event, '{{ row.id }}')">Cancel</button>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div id="alert-container" class="position-fixed bottom-0 end-0 p-3" style="z-index: 9999"></div>
+
+<script>
+    let openRowId = null;
+
+    function toggleExpand(rowId) {
+        const expandRow = document.getElementById(`expand-${rowId}`);
+
+        if (openRowId && openRowId !== rowId) {
+            document.getElementById(`expand-${openRowId}`).classList.remove('open');
+        }
+
+        if (openRowId === rowId) {
+            expandRow.classList.remove('open');
+            openRowId = null;
+        } else {
+            expandRow.classList.add('open');
+            openRowId = rowId;
+        }
+    }
+
+    function closeExpand(event, rowId) {
+        event.stopPropagation();
+        document.getElementById(`expand-${rowId}`).classList.remove('open');
+        openRowId = null;
+    }
+
+    function toggleNewCategory(select, rowId) {
+        const field = document.getElementById(`new-category-field-${rowId}`);
+        const input = document.getElementById(`new-category-${rowId}`);
+        const isNew = select.value === '__new__';
+        field.style.display = isNew ? 'flex' : 'none';
+        field.style.flexDirection = 'column';
+        if (isNew) {
+            setTimeout(() => input.focus(), 50);
+        }
+    }
+
+    async function saveTransaction(event, rowId) {
+        event.stopPropagation();
+
+        const date = document.getElementById(`edit-date-${rowId}`).value;
+        const description = document.getElementById(`edit-desc-${rowId}`).value.trim();
+        let budgetItemId = document.getElementById(`edit-budget-${rowId}`).value;
+
+        // create new category if needed
+        if (budgetItemId === '__new__') {
+            const newName = document.getElementById(`new-category-${rowId}`).value.trim();
+            if (!newName) {
+                alert('Please enter a name for the new category.');
+                return;
+            }
+            try {
+                const res = await fetch('/api/budget-items', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: newName })
+                });
+                const created = await res.json();
+                if (!res.ok) throw new Error(created.detail || 'Failed to create category');
+                budgetItemId = created.id;
+
+                // add to all dropdowns on the page
+                document.querySelectorAll('select[id^="edit-budget-"]').forEach(select => {
+                    const newOption = new Option(newName, created.id);
+                    select.insertBefore(newOption, select.querySelector('option[value="__new__"]'));
+                });
+
+                // select it in this row's dropdown
+                document.getElementById(`edit-budget-${rowId}`).value = created.id;
+
+            } catch (err) {
+                alert(err.message);
+                return;
+            }
+        }
+
+        try {
+            const response = await fetch(`/api/transactions/${rowId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    date: date,
+                    description: description,
+                    budget_item_id: budgetItemId ? parseInt(budgetItemId) : null
+                })
+            });
+
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || 'Save failed');
+
+        const mainRow = document.getElementById(`row-${rowId}`);
+        const selectedOption = document.getElementById(`edit-budget-${rowId}`).selectedOptions[0];
+        const categoryText = selectedOption.value ? selectedOption.text : '—';
+
+        // update the saved row
+        mainRow.cells[0].textContent = date;
+        mainRow.cells[1].textContent = description;
+        document.getElementById(`category-${rowId}`).textContent = categoryText;
+        mainRow.classList.remove('unreviewed');
+
+        // update matching rows
+        if (data.also_updated > 0) {
+            document.querySelectorAll('tr.transaction-row').forEach(row => {
+                const expandRow = row.nextElementSibling;
+                const origDescInput = expandRow?.querySelector('input[disabled].font-monospace');
+                if (origDescInput && origDescInput.value === document.querySelector(`#expand-${rowId} input[disabled].font-monospace`).value) {
+                    const matchId = row.id.replace('row-', '');
+                    if (matchId !== rowId) {
+                        row.cells[1].textContent = description;
+                        document.getElementById(`category-${matchId}`).textContent = categoryText;
+                        row.classList.remove('unreviewed');
+                    }
+                }
+            });
+        }
+
+        // close expand
+        document.getElementById(`expand-${rowId}`).classList.remove('open');
+        openRowId = null;
+        showAlert('Transaction saved.', 'success');
+
+        } catch (err) {
+            showAlert(err.message, 'danger');
+        }
+    }
+
+    function showAlert(message, type) {
+        const container = document.getElementById('alert-container');
+        container.innerHTML = `
+            <div class="alert alert-${type} alert-dismissible fade show shadow" role="alert">
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>`;
+        setTimeout(() => container.innerHTML = '', 3000);
+    }
+</script>
+
+{% endblock content %}

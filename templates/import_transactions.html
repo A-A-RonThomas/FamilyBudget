@@ -1,0 +1,116 @@
+{% extends "layout.html" %}
+{% block content %}
+
+<div class="row justify-content-center mt-5">
+    <div class="col-md-6">
+        <h4 class="mb-4 text-center">Import Bank CSVs</h4>
+
+        <div id="alert-container"></div>
+
+        <form id="import-form" enctype="multipart/form-data">
+            <div class="card mb-3">
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="joint" class="form-label fw-semibold">Joint Account</label>
+                        <input class="form-control" type="file" id="joint" name="joint" accept=".csv">
+                    </div>
+                    <div class="mb-3">
+                        <label for="grocery" class="form-label fw-semibold">Grocery Account</label>
+                        <input class="form-control" type="file" id="grocery" name="grocery" accept=".csv">
+                    </div>
+                    <div class="mb-0">
+                        <label for="credit" class="form-label fw-semibold">Credit Account</label>
+                        <input class="form-control" type="file" id="credit" name="credit" accept=".csv">
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-grid">
+                <button type="submit" class="btn btn-primary" id="import-btn">
+                    Import
+                </button>
+            </div>
+        </form>
+
+        <!-- Result summary -->
+        <div id="import-summary" class="mt-4 d-none">
+            <div class="card">
+                <div class="card-body text-center">
+                    <p class="mb-1">
+                        <span class="text-success fw-semibold" id="imported-count"></span> transactions imported
+                    </p>
+                    <p class="mb-3">
+                        <span class="text-secondary fw-semibold" id="skipped-count"></span> skipped (already exist)
+                    </p>
+                    <a href="/" class="btn btn-primary">View Transactions</a>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    document.getElementById('import-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const btn = document.getElementById('import-btn');
+        const alertContainer = document.getElementById('alert-container');
+        const summary = document.getElementById('import-summary');
+
+        // must have at least one file
+        const joint = document.getElementById('joint').files[0];
+        const grocery = document.getElementById('grocery').files[0];
+        const credit = document.getElementById('credit').files[0];
+
+        if (!joint && !grocery && !credit) {
+            alertContainer.innerHTML = `
+                <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                    Please select at least one CSV file to import.
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>`;
+            return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = 'Importing...';
+        alertContainer.innerHTML = '';
+        summary.classList.add('d-none');
+
+        const formData = new FormData();
+        if (joint) formData.append('joint', joint);
+        if (grocery) formData.append('grocery', grocery);
+        if (credit) formData.append('credit', credit);
+
+        try {
+            const response = await fetch('/api/import', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.detail || 'Import failed');
+            }
+
+            document.getElementById('imported-count').textContent = data.imported;
+            document.getElementById('skipped-count').textContent = data.skipped;
+            summary.classList.remove('d-none');
+
+        } catch (err) {
+            alertContainer.innerHTML = `
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    ${err.message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>`;
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Import';
+        }
+    });
+
+
+</script>
+
+{% endblock content %}
