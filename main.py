@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from routers.pages import transactions as transactions_pages, import_transactions as import_transactions_pages
+from routers.pages import (transactions as transactions_pages, 
+                           import_transactions as import_transactions_pages,
+                           budget as budget_pages)
 from routers.api import transactions as transactions_api, import_transactions as import_transactions_api
 from routers.api import budget as budget_api
 from core.database import Base, engine, DB_PATH
@@ -24,6 +26,8 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 app.include_router(transactions_pages.router)
 app.include_router(import_transactions_pages.router)
+app.include_router(budget_pages.router)
+
 
 app.include_router(
     transactions_api.router,
@@ -42,3 +46,4 @@ app.include_router(
     prefix="/api",
     tags=["Budget API"]
 )
+

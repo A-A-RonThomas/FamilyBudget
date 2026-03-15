@@ -41,7 +41,7 @@
     }
 </style>
 
-<form method="get" class="mb-3 d-flex gap-2 align-items-center justify-content-center">
+<form method="get" class="mb-3 d-flex gap-2 align-items-center justify-content-center flex-wrap">
     <label for="type">Type:</label>
     <select id="type" name="type" class="form-control w-auto">
         <option value="purchases" {% if type == "purchases" %}selected{% endif %}>Purchases</option>
@@ -53,11 +53,24 @@
            value="{{ year or default_year }}" min="2000" max="2100" class="form-control w-auto">
 
     <label for="month">Month:</label>
-    <input type="number" id="month" name="month"
-           value="{{ month or default_month }}" min="1" max="12" class="form-control w-auto">
+    <select id="month" name="month" class="form-control w-auto">
+        <option value="1" {% if month == 1 %}selected{% endif %}>January</option>
+        <option value="2" {% if month == 2 %}selected{% endif %}>February</option>
+        <option value="3" {% if month == 3 %}selected{% endif %}>March</option>
+        <option value="4" {% if month == 4 %}selected{% endif %}>April</option>
+        <option value="5" {% if month == 5 %}selected{% endif %}>May</option>
+        <option value="6" {% if month == 6 %}selected{% endif %}>June</option>
+        <option value="7" {% if month == 7 %}selected{% endif %}>July</option>
+        <option value="8" {% if month == 8 %}selected{% endif %}>August</option>
+        <option value="9" {% if month == 9 %}selected{% endif %}>September</option>
+        <option value="10" {% if month == 10 %}selected{% endif %}>October</option>
+        <option value="11" {% if month == 11 %}selected{% endif %}>November</option>
+        <option value="12" {% if month == 12 %}selected{% endif %}>December</option>
+    </select>
 
     <button type="submit" class="btn btn-primary">Filter</button>
-    <a href="{{ request.url.path }}" class="btn btn-secondary">Clear</a>
+    <a href="{{ request.url.path }}?year={{ default_year }}&month={{ default_month }}&type=purchases" class="btn btn-secondary">Clear</a>
+    <a href="{{ request.url.path }}?type={{ type }}&view_all=true" class="btn btn-outline-secondary">View All</a>
 </form>
 
 <div class="table-responsive d-flex justify-content-center">
@@ -114,10 +127,15 @@
                                    value="{{ row.account }}" disabled>
                         </div>
                         <div class="field wide">
-                            <label class="form-label fw-semibold mb-1">Budget Category</label>
-                            <select class="form-select form-select-sm"
-                                    id="edit-budget-{{ row.id }}"
-                                    onchange="toggleNewCategory(this, '{{ row.id }}')">
+                            <label class="form-label fw-semibold mb-1">
+                                Budget Category
+                                <span class="text-muted" 
+                                    style="cursor: help; font-size: 0.85rem;"
+                                    title="Budget category must exist in budget for {{ month_name }} {{ year }}">
+                                    &#9432;
+                                </span>
+                            </label>
+                            <select class="form-select form-select-sm" id="edit-budget-{{ row.id }}">
                                 <option value="">-- Select Category --</option>
                                 {% for item in budget_items %}
                                 <option value="{{ item.id }}"
@@ -125,13 +143,7 @@
                                     {{ item.name }}
                                 </option>
                                 {% endfor %}
-                                <option value="__new__">+ Add new category...</option>
                             </select>
-                        </div>
-                        <div class="field wide" id="new-category-field-{{ row.id }}" style="display:none;">
-                            <label class="form-label fw-semibold mb-1">New Category Name</label>
-                            <input type="text" class="form-control form-control-sm"
-                                   id="new-category-{{ row.id }}" placeholder="e.g. Entertainment">
                         </div>
                         <div class="field d-flex gap-2 align-items-end">
                             <button class="btn btn-primary btn-sm"
@@ -174,55 +186,12 @@
         openRowId = null;
     }
 
-    function toggleNewCategory(select, rowId) {
-        const field = document.getElementById(`new-category-field-${rowId}`);
-        const input = document.getElementById(`new-category-${rowId}`);
-        const isNew = select.value === '__new__';
-        field.style.display = isNew ? 'flex' : 'none';
-        field.style.flexDirection = 'column';
-        if (isNew) {
-            setTimeout(() => input.focus(), 50);
-        }
-    }
-
     async function saveTransaction(event, rowId) {
         event.stopPropagation();
 
         const date = document.getElementById(`edit-date-${rowId}`).value;
         const description = document.getElementById(`edit-desc-${rowId}`).value.trim();
-        let budgetItemId = document.getElementById(`edit-budget-${rowId}`).value;
-
-        // create new category if needed
-        if (budgetItemId === '__new__') {
-            const newName = document.getElementById(`new-category-${rowId}`).value.trim();
-            if (!newName) {
-                alert('Please enter a name for the new category.');
-                return;
-            }
-            try {
-                const res = await fetch('/api/budget-items', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: newName })
-                });
-                const created = await res.json();
-                if (!res.ok) throw new Error(created.detail || 'Failed to create category');
-                budgetItemId = created.id;
-
-                // add to all dropdowns on the page
-                document.querySelectorAll('select[id^="edit-budget-"]').forEach(select => {
-                    const newOption = new Option(newName, created.id);
-                    select.insertBefore(newOption, select.querySelector('option[value="__new__"]'));
-                });
-
-                // select it in this row's dropdown
-                document.getElementById(`edit-budget-${rowId}`).value = created.id;
-
-            } catch (err) {
-                alert(err.message);
-                return;
-            }
-        }
+        const budgetItemId = document.getElementById(`edit-budget-${rowId}`).value;
 
         try {
             const response = await fetch(`/api/transactions/${rowId}`, {
@@ -235,39 +204,39 @@
                 })
             });
 
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.detail || 'Save failed');
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.detail || 'Save failed');
 
-        const mainRow = document.getElementById(`row-${rowId}`);
-        const selectedOption = document.getElementById(`edit-budget-${rowId}`).selectedOptions[0];
-        const categoryText = selectedOption.value ? selectedOption.text : '—';
+            const mainRow = document.getElementById(`row-${rowId}`);
+            const selectedOption = document.getElementById(`edit-budget-${rowId}`).selectedOptions[0];
+            const categoryText = selectedOption.value ? selectedOption.text : '—';
 
-        // update the saved row
-        mainRow.cells[0].textContent = date;
-        mainRow.cells[1].textContent = description;
-        document.getElementById(`category-${rowId}`).textContent = categoryText;
-        mainRow.classList.remove('unreviewed');
+            // update the saved row
+            mainRow.cells[0].textContent = date;
+            mainRow.cells[1].textContent = description;
+            document.getElementById(`category-${rowId}`).textContent = categoryText;
+            mainRow.classList.remove('unreviewed');
 
-        // update matching rows
-        if (data.also_updated > 0) {
-            document.querySelectorAll('tr.transaction-row').forEach(row => {
-                const expandRow = row.nextElementSibling;
-                const origDescInput = expandRow?.querySelector('input[disabled].font-monospace');
-                if (origDescInput && origDescInput.value === document.querySelector(`#expand-${rowId} input[disabled].font-monospace`).value) {
-                    const matchId = row.id.replace('row-', '');
-                    if (matchId !== rowId) {
-                        row.cells[1].textContent = description;
-                        document.getElementById(`category-${matchId}`).textContent = categoryText;
-                        row.classList.remove('unreviewed');
+            // update matching rows
+            if (data.also_updated > 0) {
+                document.querySelectorAll('tr.transaction-row').forEach(row => {
+                    const expandRow = row.nextElementSibling;
+                    const origDescInput = expandRow?.querySelector('input[disabled].font-monospace');
+                    if (origDescInput && origDescInput.value === document.querySelector(`#expand-${rowId} input[disabled].font-monospace`).value) {
+                        const matchId = row.id.replace('row-', '');
+                        if (matchId !== rowId) {
+                            row.cells[1].textContent = description;
+                            document.getElementById(`category-${matchId}`).textContent = categoryText;
+                            row.classList.remove('unreviewed');
+                        }
                     }
-                }
-            });
-        }
+                });
+            }
 
-        // close expand
-        document.getElementById(`expand-${rowId}`).classList.remove('open');
-        openRowId = null;
-        showAlert('Transaction saved.', 'success');
+            // close expand
+            document.getElementById(`expand-${rowId}`).classList.remove('open');
+            openRowId = null;
+            showAlert('Transaction saved.', 'success');
 
         } catch (err) {
             showAlert(err.message, 'danger');
