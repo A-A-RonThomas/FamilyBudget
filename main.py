@@ -5,10 +5,14 @@ from routers.pages import (transactions as transactions_pages,
                            budget as budget_pages)
 from routers.api import transactions as transactions_api, import_transactions as import_transactions_api
 from routers.api import budget as budget_api
+from routers.api import simplefin
+from routers.pages import settings as settings_pages
+from routers.api import accounts as accounts_api
 from core.database import Base, engine, DB_PATH
 from contextlib import asynccontextmanager
-import models
+from models.database import *
 import os
+
 
 
 @asynccontextmanager
@@ -27,6 +31,9 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 app.include_router(transactions_pages.router)
 app.include_router(import_transactions_pages.router)
 app.include_router(budget_pages.router)
+app.include_router(simplefin.router, prefix="/api", tags=["SimpleFIN API"])
+app.include_router(settings_pages.router)
+app.include_router(accounts_api.router, prefix="/api", tags=["Accounts API"])
 
 
 app.include_router(

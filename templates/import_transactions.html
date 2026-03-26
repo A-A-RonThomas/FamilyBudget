@@ -3,59 +3,73 @@
 
 <div class="row justify-content-center mt-5">
     <div class="col-md-6">
-        <h4 class="mb-4 text-center">Import Bank CSV</h4>
+        <h4 class="mb-4 text-center">Import Transactions</h4>
 
         <div id="alert-container"></div>
 
+        {# ------------------------------------------------------------------ #}
+        {# SIMPLEFIN SECTION                                                   #}
+        {# ------------------------------------------------------------------ #}
         <div class="card mb-3">
             <div class="card-body">
+                <h6 class="card-title fw-semibold mb-3">Bank Connection</h6>
 
-                <!-- File input -->
-                <div class="mb-3">
-                    <label for="csv-file" class="form-label fw-semibold">CSV File</label>
-                    <input class="form-control" type="file" id="csv-file" accept=".csv">
+                {# Connected accounts list — populated on page load #}
+                <div id="accounts-list" class="mb-3">
+                    <p class="text-secondary small mb-2">Loading accounts...</p>
                 </div>
 
-                <!-- Account selector -->
-                <div class="mb-3">
-                    <label for="account-select" class="form-label fw-semibold">Account</label>
-                    <select class="form-select" id="account-select">
-                        <option value="">-- Select Account --</option>
-                        <option value="__new__">+ Add new account...</option>
-                    </select>
-                </div>
-
-                <!-- New account input -->
-                <div class="mb-3 d-none" id="new-account-section">
-                    <label for="new-account-input" class="form-label fw-semibold">New Account Name</label>
-                    <input type="text" class="form-control" id="new-account-input" placeholder="e.g. Joint Checking">
-                </div>
-
-                <!-- Negate checkbox -->
-                <div class="mb-3 form-check">
-                    <input class="form-check-input" type="checkbox" id="negate-check">
-                    <label class="form-check-label" for="negate-check">
-                        Negate amounts (use for credit cards)
-                    </label>
-                </div>
-
-                <div class="d-grid">
-                    <button class="btn btn-primary" id="import-btn" onclick="doImport()">Import</button>
-                </div>
+                <button id="sync-btn" class="btn btn-success w-100">
+                    Pull Latest Transactions
+                </button>
             </div>
         </div>
 
-        <!-- Result summary -->
-        <div id="import-summary" class="mt-4 d-none">
-            <div class="card">
-                <div class="card-body text-center">
-                    <p class="mb-1">
-                        <span class="text-success fw-semibold" id="imported-count"></span> transactions imported
-                    </p>
-                    <p class="mb-3">
-                        <span class="text-secondary fw-semibold" id="skipped-count"></span> skipped (already exist)
-                    </p>
-                    <a href="/" class="btn btn-primary">View Transactions</a>
+        {# ------------------------------------------------------------------ #}
+        {# CSV FALLBACK — collapsed by default                                 #}
+        {# ------------------------------------------------------------------ #}
+        <div class="mb-3">
+            <a class="text-secondary small"
+               data-bs-toggle="collapse"
+               href="#csv-fallback"
+               role="button"
+               aria-expanded="false">
+                ▸ Import via CSV instead
+            </a>
+        </div>
+
+        <div class="collapse" id="csv-fallback">
+            <div class="card mb-3">
+                <div class="card-body">
+
+                    <div class="mb-3">
+                        <label for="csv-file" class="form-label fw-semibold">CSV File</label>
+                        <input class="form-control" type="file" id="csv-file" accept=".csv">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="account-select" class="form-label fw-semibold">Account</label>
+                        <select class="form-select" id="account-select">
+                            <option value="">-- Select Account --</option>
+                            <option value="__new__">+ Add new account...</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3 d-none" id="new-account-section">
+                        <label for="new-account-input" class="form-label fw-semibold">New Account Name</label>
+                        <input type="text" class="form-control" id="new-account-input" placeholder="e.g. Joint Checking">
+                    </div>
+
+                    <div class="mb-3 form-check">
+                        <input class="form-check-input" type="checkbox" id="negate-check">
+                        <label class="form-check-label" for="negate-check">
+                            Negate amounts (use for credit cards)
+                        </label>
+                    </div>
+
+                    <div class="d-grid">
+                        <button class="btn btn-primary" id="import-btn" onclick="doImport()">Import</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -64,13 +78,80 @@
 </div>
 
 <script>
-    // load accounts on page load
+
+    // ------------------------------------------------------------------
+    // Load SimpleFIN accounts on page load
+    // ------------------------------------------------------------------
     async function loadAccounts() {
+        const container = document.getElementById('accounts-list');
+        try {
+            const res = await fetch('/api/simplefin/accounts');
+            if (!res.ok) throw new Error('Could not reach SimpleFIN');
+            const accounts = await res.json();
+
+            if (!accounts.length) {
+                container.innerHTML = '<p class="text-secondary small mb-2">No accounts found. Check your SIMPLEFIN_ACCESS_URL.</p>';
+                return;
+            }
+
+            let html = '';
+            accounts.forEach(a => {
+                const balance = a.balance != null
+                    ? ` — $${parseFloat(a.balance).toFixed(2)}`
+                    : '';
+                html += `<div class="small mb-1">
+                    <span class="fw-semibold">${a.org}</span>
+                    — ${a.name}${balance}
+                </div>`;
+            });
+            container.innerHTML = html;
+
+        } catch (err) {
+            container.innerHTML = `<p class="text-danger small mb-2">${err.message}</p>`;
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Sync transactions from SimpleFIN → redirect to transactions page
+    // ------------------------------------------------------------------
+    document.getElementById('sync-btn').addEventListener('click', async function () {
+        const alertContainer = document.getElementById('alert-container');
+        const btn = this;
+        alertContainer.innerHTML = '';
+        btn.disabled = true;
+        btn.textContent = 'Pulling transactions...';
+
+        try {
+            const res = await fetch('/api/simplefin/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ days: 30 }),
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Sync failed');
+
+            window.location.href = `/?imported=${data.imported}&skipped=${data.skipped}`;
+
+        } catch (err) {
+            alertContainer.innerHTML = `
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    ${err.message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>`;
+            btn.disabled = false;
+            btn.textContent = 'Pull Latest Transactions';
+        }
+    });
+
+    // ------------------------------------------------------------------
+    // CSV fallback logic (unchanged)
+    // ------------------------------------------------------------------
+    async function loadCsvAccounts() {
         try {
             const res = await fetch('/api/accounts');
             const accounts = await res.json();
             const select = document.getElementById('account-select');
-            // insert before the "+ Add new account..." option
             const newOption = select.querySelector('option[value="__new__"]');
             accounts.forEach(a => {
                 const opt = new Option(a.name.replace(/\b\w/g, c => c.toUpperCase()), a.id);
@@ -81,7 +162,7 @@
         }
     }
 
-    document.getElementById('account-select').addEventListener('change', function() {
+    document.getElementById('account-select').addEventListener('change', function () {
         document.getElementById('new-account-section').classList.toggle('d-none', this.value !== '__new__');
         if (this.value === '__new__') {
             setTimeout(() => document.getElementById('new-account-input').focus(), 50);
@@ -90,11 +171,8 @@
 
     async function doImport() {
         const alertContainer = document.getElementById('alert-container');
-        const summary = document.getElementById('import-summary');
         const btn = document.getElementById('import-btn');
-
         alertContainer.innerHTML = '';
-        summary.classList.add('d-none');
 
         const file = document.getElementById('csv-file').files[0];
         if (!file) {
@@ -108,7 +186,6 @@
             return;
         }
 
-        // create new account if needed
         if (accountId === '__new__') {
             const newName = document.getElementById('new-account-input').value.trim();
             if (!newName) {
@@ -123,7 +200,6 @@
                 if (!res.ok) throw new Error(created.detail || 'Failed to create account');
                 accountId = created.id;
 
-                // add to dropdown and select it
                 const select = document.getElementById('account-select');
                 const opt = new Option(newName, created.id);
                 select.insertBefore(opt, select.querySelector('option[value="__new__"]'));
@@ -136,7 +212,6 @@
         }
 
         const negate = document.getElementById('negate-check').checked;
-
         btn.disabled = true;
         btn.textContent = 'Importing...';
 
@@ -150,14 +225,9 @@
                 method: 'POST',
                 body: formData
             });
-
             const data = await response.json();
             if (!response.ok) throw new Error(data.detail || 'Import failed');
-
-            document.getElementById('imported-count').textContent = data.imported;
-            document.getElementById('skipped-count').textContent = data.skipped;
-            summary.classList.remove('d-none');
-
+            window.location.href = `/?imported=${data.imported}&skipped=${data.skipped}`;
         } catch (err) {
             alertContainer.innerHTML = `
                 <div class="alert alert-danger alert-dismissible fade show" role="alert">
@@ -170,7 +240,10 @@
         }
     }
 
+    // Init
     loadAccounts();
+    loadCsvAccounts();
+
 </script>
 
 {% endblock content %}

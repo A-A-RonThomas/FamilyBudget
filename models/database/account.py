@@ -8,6 +8,7 @@ class Account(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
+    simplefin_id = Column(String, nullable=True, unique=True, index=True)
 
     transaction = relationship(
         "Transaction",
