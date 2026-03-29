@@ -18,8 +18,8 @@ import os
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # startup
-    if not os.path.exists(DB_PATH):
-        Base.metadata.create_all(bind=engine)
+    # if not os.path.exists(DB_PATH):
+    Base.metadata.create_all(bind=engine)
     yield
     # shutdown (anything after yield runs on shutdown)
 

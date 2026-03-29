@@ -31,4 +31,7 @@ def save_transactions(purchases: list, db: Session = Depends(get_db)):
 
 @router.patch("/transactions/{trans_id}", response_model=TransactionUpdateResponse)
 def update_transaction(trans_id: int, body: TransactionUpdateRequest, db: Session = Depends(get_db)):
-    return TransactionController.update_transaction(trans_id, body.date, body.description, body.budget_item_id, db)
+    return TransactionController.update_transaction(
+        trans_id, body.date, body.description,
+        body.budget_item_id, body.fund_item_id, body.is_income, db
+    )

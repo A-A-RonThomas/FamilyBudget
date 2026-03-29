@@ -5,7 +5,7 @@ from sqlalchemy import extract
 from sqlalchemy.orm import Session
 from core.database import get_db
 from controllers import TransactionController
-from models.database import BudgetItem, BudgetTable, Budget
+from models.database import BudgetItem, BudgetTable, Budget, FundItem
 from datetime import datetime
 from calendar import month_name as cal_month_name
 
@@ -39,14 +39,22 @@ def transactions(
         extract('month', Budget.date) == month
     ).first()
 
+
+    #  Here is where I need to also get the funditems to be able to select them in transactions.
     if budget:
         budget_items = db.query(BudgetItem)\
             .join(BudgetTable, BudgetItem.budget_table_id == BudgetTable.id)\
             .filter(BudgetTable.budget_id == budget.id)\
             .order_by(BudgetItem.name)\
             .all()
+        fund_items = db.query(FundItem)\
+            .join(BudgetTable, FundItem.budget_table_id == BudgetTable.id)\
+            .filter(BudgetTable.budget_id == budget.id)\
+            .order_by(FundItem.name)\
+            .all()
     else:
         budget_items = []
+        fund_items = []
 
     return templates.TemplateResponse(
         "transactions.html",
@@ -61,6 +69,7 @@ def transactions(
             "default_month": now.month,
             "month_name": cal_month_name[month] if month else "selected month",
             "type": type,
-            "budget_items": budget_items
+            "budget_items": budget_items,
+            "fund_items": fund_items
         }
     )

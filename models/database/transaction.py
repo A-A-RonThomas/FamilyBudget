@@ -8,10 +8,10 @@ class Transaction(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     date = Column(Date, nullable=False)
-    description = Column(String, nullable=False)
-    orig_description = Column(String, nullable=False)
+    description = Column(String, nullable=False)       # payee from SimpleFIN (clean)
+    memo = Column(String, nullable=True)               # memo from SimpleFIN
     amount = Column(Float, nullable=False)
-    hash = Column(String, nullable=False)
+    simplefin_id = Column(String, nullable=True, unique=True, index=True)  # null for manual entries
 
     account_id = Column(Integer, ForeignKey("account.id"), nullable=False)
     account = relationship("Account", back_populates="transaction")
@@ -24,6 +24,8 @@ class Transaction(Base):
 
     fund_item_id = Column(Integer, ForeignKey("fund_item.id"), nullable=True)
     fund_item = relationship("FundItem", back_populates="transaction")
+
+    is_income = Column(Boolean, default=True, nullable=False)
 
     def __repr__(self):
         return f"<Transaction id={self.id} date={self.date} amount={self.amount}>"

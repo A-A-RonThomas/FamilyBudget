@@ -19,7 +19,7 @@
                     <p class="text-secondary small mb-2">Loading accounts...</p>
                 </div>
 
-                <button id="sync-btn" class="btn btn-success w-100">
+                <button id="sync-btn" class="btn btn-success w-100" disabled>
                     Pull Latest Transactions
                 </button>
             </div>
@@ -80,10 +80,12 @@
 <script>
 
     // ------------------------------------------------------------------
-    // Load SimpleFIN accounts on page load
+    // Load SimpleFIN accounts on page load — render as checkboxes
     // ------------------------------------------------------------------
     async function loadAccounts() {
         const container = document.getElementById('accounts-list');
+        const syncBtn = document.getElementById('sync-btn');
+
         try {
             const res = await fetch('/api/simplefin/accounts');
             if (!res.ok) throw new Error('Could not reach SimpleFIN');
@@ -94,25 +96,45 @@
                 return;
             }
 
-            let html = '';
-            accounts.forEach(a => {
+            let html = '<div class="mb-1"><small class="text-muted">Select accounts to sync:</small></div>';
+            accounts.forEach((a, i) => {
                 const balance = a.balance != null
                     ? ` — $${parseFloat(a.balance).toFixed(2)}`
                     : '';
-                html += `<div class="small mb-1">
-                    <span class="fw-semibold">${a.org}</span>
-                    — ${a.name}${balance}
-                </div>`;
+                html += `
+                    <div class="form-check mb-1">
+                        <input class="form-check-input account-checkbox"
+                               type="checkbox"
+                               value="${a.simplefin_id}"
+                               id="acct-${i}"
+                               checked
+                               onchange="updateSyncButton()">
+                        <label class="form-check-label small" for="acct-${i}">
+                            <span class="fw-semibold">${a.org}</span>
+                            — ${a.name}${balance}
+                        </label>
+                    </div>`;
             });
             container.innerHTML = html;
+            updateSyncButton();
 
         } catch (err) {
             container.innerHTML = `<p class="text-danger small mb-2">${err.message}</p>`;
         }
     }
 
+    function updateSyncButton() {
+        const anyChecked = document.querySelectorAll('.account-checkbox:checked').length > 0;
+        document.getElementById('sync-btn').disabled = !anyChecked;
+    }
+
+    function getSelectedAccountIds() {
+        return Array.from(document.querySelectorAll('.account-checkbox:checked'))
+            .map(cb => cb.value);
+    }
+
     // ------------------------------------------------------------------
-    // Sync transactions from SimpleFIN → redirect to transactions page
+    // Sync transactions from SimpleFIN — only selected accounts
     // ------------------------------------------------------------------
     document.getElementById('sync-btn').addEventListener('click', async function () {
         const alertContainer = document.getElementById('alert-container');
@@ -121,11 +143,13 @@
         btn.disabled = true;
         btn.textContent = 'Pulling transactions...';
 
+        const selectedIds = getSelectedAccountIds();
+
         try {
             const res = await fetch('/api/simplefin/sync', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ days: 30 }),
+                body: JSON.stringify({ days: 30, account_ids: selectedIds }),
             });
 
             const data = await res.json();
@@ -141,6 +165,7 @@
                 </div>`;
             btn.disabled = false;
             btn.textContent = 'Pull Latest Transactions';
+            updateSyncButton();
         }
     });
 

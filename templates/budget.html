@@ -10,7 +10,7 @@
         vertical-align: middle;
     }
     .amount-cell {
-        width: 130px;
+        width: 100px;
         text-align: right;
     }
     .over-budget {
@@ -24,18 +24,15 @@
         font-size: 1.1rem;
         font-weight: 600;
     }
-    .editable-input {
-        border: none;
-        background: transparent;
-        text-align: right;
-        width: 100%;
-        padding: 0;
+    .budget-table tbody tr:not(.table-secondary) {
+        cursor: pointer;
     }
-    .editable-input:focus {
-        outline: 1px solid #86b7fe;
-        border-radius: 3px;
-        background: white;
-        padding: 2px 4px;
+    .budget-table tbody tr:not(.table-secondary):hover {
+        background-color: #f8f9fa;
+    }
+    .overview-table td, .overview-table th {
+        font-size: 0.875rem;
+        padding: 0.4rem 0.6rem;
     }
 </style>
 
@@ -46,15 +43,15 @@
            value="{{ year }}" min="2000" max="2100" class="form-control w-auto">
     <label for="month">Month:</label>
     <select id="month" name="month" class="form-control w-auto">
-        <option value="1" {% if month == 1 %}selected{% endif %}>January</option>
-        <option value="2" {% if month == 2 %}selected{% endif %}>February</option>
-        <option value="3" {% if month == 3 %}selected{% endif %}>March</option>
-        <option value="4" {% if month == 4 %}selected{% endif %}>April</option>
-        <option value="5" {% if month == 5 %}selected{% endif %}>May</option>
-        <option value="6" {% if month == 6 %}selected{% endif %}>June</option>
-        <option value="7" {% if month == 7 %}selected{% endif %}>July</option>
-        <option value="8" {% if month == 8 %}selected{% endif %}>August</option>
-        <option value="9" {% if month == 9 %}selected{% endif %}>September</option>
+        <option value="1"  {% if month == 1  %}selected{% endif %}>January</option>
+        <option value="2"  {% if month == 2  %}selected{% endif %}>February</option>
+        <option value="3"  {% if month == 3  %}selected{% endif %}>March</option>
+        <option value="4"  {% if month == 4  %}selected{% endif %}>April</option>
+        <option value="5"  {% if month == 5  %}selected{% endif %}>May</option>
+        <option value="6"  {% if month == 6  %}selected{% endif %}>June</option>
+        <option value="7"  {% if month == 7  %}selected{% endif %}>July</option>
+        <option value="8"  {% if month == 8  %}selected{% endif %}>August</option>
+        <option value="9"  {% if month == 9  %}selected{% endif %}>September</option>
         <option value="10" {% if month == 10 %}selected{% endif %}>October</option>
         <option value="11" {% if month == 11 %}selected{% endif %}>November</option>
         <option value="12" {% if month == 12 %}selected{% endif %}>December</option>
@@ -91,114 +88,210 @@
     </div>
 </div>
 
-{% for table in budget.tables %}
-<div class="card mb-4" id="table-{{ table.id }}">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <input class="table-title form-control-plaintext p-0 fw-semibold"
-            style="font-size: 1.1rem; width: auto; min-width: 150px;"
-            id="table-name-{{ table.id }}"
-            value="{{ table.name }}"
-            data-table-id="{{ table.id }}"
-            onchange="updateTableName(this)">
-        <button class="btn btn-sm btn-outline-secondary"
-                data-table-id="{{ table.id }}"
-                data-is-fund="{{ 'true' if table.is_fund else 'false' }}"
-                onclick="openAddItemModal(this)">
-            + Add Item
-        </button>
-    </div>
-    <div class="card-body p-0">
-        {% if table.is_fund %}
-        <!-- Fund table -->
-        <table class="table budget-table mb-0">
-            <thead>
-                <tr>
-                    <th>Category</th>
-                    <th class="amount-cell">Starting</th>
-                    <th class="amount-cell">Plus</th>
-                    <th class="amount-cell">Minus</th>
-                    <th class="amount-cell">Ending</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in table.line_items %}
-                <tr>
-                    <td>{{ item.name | title }}</td>
-                    <td class="amount-cell">${{ '%.2f' | format(item.starting_value) }}</td>
-                    <td class="amount-cell">
-                        <input class="editable-input"
-                            type="number"
-                            step="0.01"
-                            value="{{ '%.2f' | format(item.plus) }}"
-                            data-item-id="{{ item.id }}"
-                            data-item-name="{{ item.name }}"
-                            onchange="updateFundItem(this)"
-                            id="plus-{{ item.id }}">
-                    </td>
-                    <td class="amount-cell">${{ '%.2f' | format(item.minus) }}</td>
-                    <td class="amount-cell fw-semibold">${{ '%.2f' | format(item.ending_value) }}</td>
-                </tr>
-                {% endfor %}
-                <!-- Totals row -->
-                <tr class="table-secondary fw-semibold">
-                    <td>Total</td>
-                    <td class="amount-cell">${{ '%.2f' | format(table.line_items | sum(attribute='starting_value')) }}</td>
-                    <td class="amount-cell">${{ '%.2f' | format(table.line_items | sum(attribute='plus')) }}</td>
-                    <td class="amount-cell">${{ '%.2f' | format(table.line_items | sum(attribute='minus')) }}</td>
-                    <td class="amount-cell">${{ '%.2f' | format(table.line_items | sum(attribute='ending_value')) }}</td>
-                </tr>
-            </tbody>
-        </table>
+<div class="d-flex gap-4 align-items-start">
 
-        {% else %}
-        <!-- Regular budget table -->
-        <table class="table budget-table mb-0">
-            <thead>
-                <tr>
-                    <th>Item</th>
-                    <th class="amount-cell">Planned</th>
-                    <th class="amount-cell">Actual</th>
-                    <th class="amount-cell">Difference</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in table.line_items %}
-                {% set diff = item.expected - item.actual %}
-                <tr>
-                    <td>{{ item.name | title }}</td>
-                    <td class="amount-cell">
-                        <input class="editable-input"
-                            type="number"
-                            step="0.01"
-                            value="{{ '%.2f' | format(item.expected) }}"
+    <!-- ── Overview Panel (left, hidden on mobile) ─────────── -->
+    <div class="d-none d-lg-block flex-shrink-0" style="width: 360px;">
+        <div class="sticky-top" style="top: 1rem;">
+
+            <!-- Budget Overview -->
+            <div class="card mb-3">
+                <div class="card-header fw-semibold">Budget Overview</div>
+                <div class="card-body p-0">
+                    <table class="table overview-table mb-0">
+                        <thead>
+                            <tr style="background-color: #e9ecef;">
+                                <th>Category</th>
+                                <th class="text-end">Planned</th>
+                                <th class="text-end">Actual</th>
+                                <th class="text-end">Remaining</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in budget.overview if not row.is_fund %}
+                            <tr>
+                                <td>{{ row.name }}</td>
+                                <td class="text-end">${{ '%.2f' | format(row.planned) }}</td>
+                                <td class="text-end">${{ '%.2f' | format(row.actual) }}</td>
+                                <td class="text-end {% if row.remaining < 0 %}text-danger fw-semibold{% else %}text-success{% endif %}">
+                                    ${{ '%.2f' | format(row.remaining | abs) }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            <tr class="table-secondary fw-semibold">
+                                <td>Total</td>
+                                <td class="text-end">${{ '%.2f' | format(budget.total_planned) }}</td>
+                                <td class="text-end">${{ '%.2f' | format(budget.total_actual) }}</td>
+                                {% set total_remaining = budget.total_planned - budget.total_actual %}
+                                <td class="text-end {% if total_remaining < 0 %}text-danger{% else %}text-success{% endif %}">
+                                    ${{ '%.2f' | format(total_remaining | abs) }}
+                                </td>
+                            </tr>
+                            <tr class="fw-semibold">
+                                <td>Savings</td>
+                                <td class="text-end">${{ '%.2f' | format(budget.income) }}</td>
+                                <td class="text-end">${{ '%.2f' | format(budget.total_actual) }}</td>
+                                <td class="text-end {% if budget.savings < 0 %}text-danger{% else %}text-success{% endif %}">
+                                    ${{ '%.2f' | format(budget.savings | abs) }}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">Income</td>
+                                <td class="text-end">${{ '%.2f' | format(budget.income) }}</td>
+                                <td class="text-end"></td>
+                                <td class="text-end"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div><!-- end Budget Overview card -->
+
+            <!-- Sinking Funds Overview -->
+            <div class="card">
+                <div class="card-header fw-semibold">Sinking Funds Overview</div>
+                <div class="card-body p-0">
+                    <table class="table overview-table mb-0">
+                        <thead>
+                            <tr style="background-color: #e9ecef;">
+                                <th>Category</th>
+                                <th class="text-end">Starting</th>
+                                <th class="text-end">Plus</th>
+                                <th class="text-end">Minus</th>
+                                <th class="text-end">Ending</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in budget.overview if row.is_fund %}
+                            <tr>
+                                <td>{{ row.name }}</td>
+                                <td class="text-end">${{ '%.2f' | format(row.starting) }}</td>
+                                <td class="text-end">${{ '%.2f' | format(row.plus) }}</td>
+                                <td class="text-end">${{ '%.2f' | format(row.minus) }}</td>
+                                <td class="text-end fw-semibold">${{ '%.2f' | format(row.ending) }}</td>
+                            </tr>
+                            {% endfor %}
+                            <tr class="table-secondary fw-semibold">
+                                <td>Total</td>
+                                <td class="text-end">${{ '%.2f' | format(budget.overview | selectattr('is_fund') | sum(attribute='starting')) }}</td>
+                                <td class="text-end">${{ '%.2f' | format(budget.overview | selectattr('is_fund') | sum(attribute='plus')) }}</td>
+                                <td class="text-end">${{ '%.2f' | format(budget.overview | selectattr('is_fund') | sum(attribute='minus')) }}</td>
+                                <td class="text-end">${{ '%.2f' | format(budget.overview | selectattr('is_fund') | sum(attribute='ending')) }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div><!-- end Sinking Funds Overview card -->
+
+        </div><!-- end sticky-top -->
+    </div><!-- end overview panel -->
+
+    <!-- ── Budget Tables (right) ───────────────────────────── -->
+    <div class="flex-grow-1">
+        {% for table in budget.tables %}
+        <div class="card mb-4 mx-auto" style="max-width: 500px;" id="table-{{ table.id }}">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <input class="table-title form-control-plaintext p-0 fw-semibold"
+                    style="font-size: 1.1rem; width: auto; min-width: 150px;"
+                    id="table-name-{{ table.id }}"
+                    value="{{ table.name }}"
+                    data-table-id="{{ table.id }}"
+                    onchange="updateTableName(this)">
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-secondary"
+                            data-table-id="{{ table.id }}"
+                            data-is-fund="{{ 'true' if table.is_fund else 'false' }}"
+                            onclick="openAddItemModal(this)">
+                        + Add Item
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger"
+                            data-table-id="{{ table.id }}"
+                            data-table-name="{{ table.name }}"
+                            onclick="confirmDeleteTable(this)">
+                        Delete Table
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                {% if table.is_fund %}
+                <!-- Fund table -->
+                <table class="table budget-table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Category</th>
+                            <th class="amount-cell">Starting</th>
+                            <th class="amount-cell">Plus</th>
+                            <th class="amount-cell">Minus</th>
+                            <th class="amount-cell">Ending</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in table.line_items %}
+                        <tr class="fund-item-row"
                             data-item-id="{{ item.id }}"
                             data-item-name="{{ item.name }}"
-                            onchange="updateBudgetItem(this)"
-                            id="expected-{{ item.id }}">
-                    </td>
-                    <td class="amount-cell">${{ '%.2f' | format(item.actual) }}</td>
-                    <td class="amount-cell {% if diff < 0 %}over-budget{% else %}under-budget{% endif %}">
-                        ${{ '%.2f' | format(diff | abs) }}
-                        {% if diff < 0 %} over{% else %} under{% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-                <!-- Totals row -->
-                <tr class="table-secondary fw-semibold">
-                    <td>Total</td>
-                    <td class="amount-cell">${{ '%.2f' | format(table.line_items | sum(attribute='expected')) }}</td>
-                    <td class="amount-cell">${{ '%.2f' | format(table.line_items | sum(attribute='actual')) }}</td>
-                    <td class="amount-cell"></td>
-                </tr>
-            </tbody>
-        </table>
-        {% endif %}
-    </div>
-</div>
-{% endfor %}
+                            data-item-starting="{{ item.starting_value }}"
+                            data-item-plus="{{ item.plus }}">
+                            <td>{{ item.name | title }}</td>
+                            <td class="amount-cell">${{ '%.2f' | format(item.starting_value) }}</td>
+                            <td class="amount-cell">${{ '%.2f' | format(item.plus) }}</td>
+                            <td class="amount-cell">${{ '%.2f' | format(item.minus) }}</td>
+                            <td class="amount-cell fw-semibold">${{ '%.2f' | format(item.ending_value) }}</td>
+                        </tr>
+                        {% endfor %}
+                        <tr class="table-secondary fw-semibold">
+                            <td>Total</td>
+                            <td class="amount-cell">${{ '%.2f' | format(table.line_items | sum(attribute='starting_value')) }}</td>
+                            <td class="amount-cell">${{ '%.2f' | format(table.line_items | sum(attribute='plus')) }}</td>
+                            <td class="amount-cell">${{ '%.2f' | format(table.line_items | sum(attribute='minus')) }}</td>
+                            <td class="amount-cell">${{ '%.2f' | format(table.line_items | sum(attribute='ending_value')) }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                {% else %}
+                <!-- Regular budget table -->
+                <table class="table budget-table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th class="amount-cell">Planned</th>
+                            <th class="amount-cell">Actual</th>
+                            <th class="amount-cell">Remaining</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in table.line_items %}
+                        {% set diff = item.expected - item.actual %}
+                        <tr class="budget-item-row"
+                            data-item-id="{{ item.id }}"
+                            data-item-name="{{ item.name }}"
+                            data-item-expected="{{ item.expected }}">
+                            <td>{{ item.name | title }}</td>
+                            <td class="amount-cell">${{ '%.2f' | format(item.expected) }}</td>
+                            <td class="amount-cell">${{ '%.2f' | format(item.actual) }}</td>
+                            <td class="amount-cell {% if diff < 0 %}over-budget{% else %}under-budget{% endif %}">
+                                ${{ '%.2f' | format(diff | abs) }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        <tr class="table-secondary fw-semibold">
+                            <td>Total</td>
+                            <td class="amount-cell">${{ '%.2f' | format(table.line_items | sum(attribute='expected')) }}</td>
+                            <td class="amount-cell">${{ '%.2f' | format(table.line_items | sum(attribute='actual')) }}</td>
+                            <td class="amount-cell"></td>
+                        </tr>
+                    </tbody>
+                </table>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div><!-- end tables column -->
+
+</div><!-- end two-column layout -->
 {% endif %}
 
-<!-- Add Table Modal -->
+<!-- ── Add Table Modal ───────────────────────────────────────── -->
 <div class="modal fade" id="addTableModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -233,7 +326,7 @@
     </div>
 </div>
 
-<!-- Add Item Modal -->
+<!-- ── Add Item Modal ────────────────────────────────────────── -->
 <div class="modal fade" id="addItemModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -271,6 +364,68 @@
     </div>
 </div>
 
+<!-- ── Edit Item Modal (Regular) ─────────────────────────────── -->
+<div class="modal fade" id="editItemModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Budget Item</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Name</label>
+                    <input type="text" id="edit-item-name" class="form-control">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Planned Amount</label>
+                    <input type="number" id="edit-item-expected" class="form-control" step="0.01">
+                </div>
+            </div>
+            <div class="modal-footer justify-content-between">
+                <button type="button" class="btn btn-danger" onclick="deleteItem()">Delete Item</button>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="saveEditItem()">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Edit Fund Item Modal ───────────────────────────────────── -->
+<div class="modal fade" id="editFundItemModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Fund Item</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Name</label>
+                    <input type="text" id="edit-fund-item-name" class="form-control">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Starting Value</label>
+                    <input type="number" id="edit-fund-item-starting" class="form-control" step="0.01">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Plus</label>
+                    <input type="number" id="edit-fund-item-plus" class="form-control" step="0.01">
+                </div>
+            </div>
+            <div class="modal-footer justify-content-between">
+                <button type="button" class="btn btn-danger" onclick="deleteFundItem()">Delete Item</button>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="saveEditFundItem()">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     const pageData = document.getElementById('page-data');
     const year = parseInt(pageData.dataset.year);
@@ -278,6 +433,29 @@
     const budgetId = pageData.dataset.budgetId ? parseInt(pageData.dataset.budgetId) : null;
     let currentTableId = null;
     let currentTableIsFund = false;
+    let currentEditItemId = null;
+
+    // ── Row click listeners ──────────────────────────────────
+    document.querySelectorAll('.budget-item-row').forEach(row => {
+        row.addEventListener('click', function () {
+            openEditItemModal(
+                parseInt(this.dataset.itemId),
+                this.dataset.itemName,
+                parseFloat(this.dataset.itemExpected)
+            );
+        });
+    });
+
+    document.querySelectorAll('.fund-item-row').forEach(row => {
+        row.addEventListener('click', function () {
+            openEditFundItemModal(
+                parseInt(this.dataset.itemId),
+                this.dataset.itemName,
+                parseFloat(this.dataset.itemStarting),
+                parseFloat(this.dataset.itemPlus)
+            );
+        });
+    });
 
     // ── Init Budget ──────────────────────────────────────────
     async function initBudget(copyPrevious) {
@@ -310,9 +488,7 @@
     async function addTable() {
         const name = document.getElementById('table-name-input').value.trim();
         const isFund = document.querySelector('input[name="table-type"]:checked').value === 'true';
-
         if (!name) { alert('Please enter a table name.'); return; }
-
         try {
             const res = await fetch('/api/budget/table', {
                 method: 'POST',
@@ -322,6 +498,27 @@
             const data = await res.json();
             if (!res.ok) throw new Error(data.detail || 'Failed to add table');
             bootstrap.Modal.getInstance(document.getElementById('addTableModal')).hide();
+            window.location.reload();
+        } catch (err) {
+            showAlert(err.message, 'danger');
+        }
+    }
+
+    // ── Delete Table ─────────────────────────────────────────
+    function confirmDeleteTable(btn) {
+        const tableId = parseInt(btn.dataset.tableId);
+        const tableName = btn.dataset.tableName;
+        if (!confirm(`Are you sure you want to delete the "${tableName}" table and all its items? This cannot be undone.`)) return;
+        deleteTable(tableId);
+    }
+
+    async function deleteTable(tableId) {
+        try {
+            const res = await fetch(`/api/budget/table/${tableId}`, { method: 'DELETE' });
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.detail || 'Failed to delete table');
+            }
             window.location.reload();
         } catch (err) {
             showAlert(err.message, 'danger');
@@ -345,7 +542,6 @@
     async function addItem() {
         const name = document.getElementById('item-name-input').value.trim();
         if (!name) { alert('Please enter an item name.'); return; }
-
         try {
             let res;
             if (currentTableIsFund) {
@@ -374,38 +570,87 @@
         }
     }
 
-    // ── Update Items ─────────────────────────────────────────
-    async function updateBudgetItem(el) {
-        const itemId = parseInt(el.dataset.itemId);
-        const name = el.dataset.itemName;
-        const expected = parseFloat(el.value);
+    // ── Edit Item (Regular) ──────────────────────────────────
+    function openEditItemModal(itemId, name, expected) {
+        currentEditItemId = itemId;
+        document.getElementById('edit-item-name').value = name;
+        document.getElementById('edit-item-expected').value = parseFloat(expected).toFixed(2);
+        new bootstrap.Modal(document.getElementById('editItemModal')).show();
+    }
+
+    async function saveEditItem() {
+        const name = document.getElementById('edit-item-name').value.trim();
+        const expected = parseFloat(document.getElementById('edit-item-expected').value);
+        if (!name) { alert('Please enter an item name.'); return; }
         try {
-            const res = await fetch(`/api/budget/item/${itemId}`, {
+            const res = await fetch(`/api/budget/item/${currentEditItemId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ budget_table_id: 0, name, expected })
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.detail || 'Failed to update item');
-            showAlert('Saved.', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('editItemModal')).hide();
+            window.location.reload();
         } catch (err) {
             showAlert(err.message, 'danger');
         }
     }
 
-    async function updateFundItem(el) {
-        const itemId = parseInt(el.dataset.itemId);
-        const name = el.dataset.itemName;
-        const plus = parseFloat(el.value);
+    async function deleteItem() {
+        if (!confirm('Are you sure you want to delete this budget item?')) return;
         try {
-            const res = await fetch(`/api/budget/fund-item/${itemId}`, {
+            const res = await fetch(`/api/budget/item/${currentEditItemId}`, { method: 'DELETE' });
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.detail || 'Failed to delete item');
+            }
+            bootstrap.Modal.getInstance(document.getElementById('editItemModal')).hide();
+            window.location.reload();
+        } catch (err) {
+            showAlert(err.message, 'danger');
+        }
+    }
+
+    // ── Edit Fund Item ───────────────────────────────────────
+    function openEditFundItemModal(itemId, name, starting, plus) {
+        currentEditItemId = itemId;
+        document.getElementById('edit-fund-item-name').value = name;
+        document.getElementById('edit-fund-item-starting').value = parseFloat(starting).toFixed(2);
+        document.getElementById('edit-fund-item-plus').value = parseFloat(plus).toFixed(2);
+        new bootstrap.Modal(document.getElementById('editFundItemModal')).show();
+    }
+
+    async function saveEditFundItem() {
+        const name = document.getElementById('edit-fund-item-name').value.trim();
+        const starting = parseFloat(document.getElementById('edit-fund-item-starting').value);
+        const plus = parseFloat(document.getElementById('edit-fund-item-plus').value);
+        if (!name) { alert('Please enter an item name.'); return; }
+        try {
+            const res = await fetch(`/api/budget/fund-item/${currentEditItemId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ budget_table_id: 0, name, plus, starting_value: 0 })
+                body: JSON.stringify({ budget_table_id: 0, name, starting_value: starting, plus })
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.detail || 'Failed to update fund item');
-            showAlert('Saved.', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('editFundItemModal')).hide();
+            window.location.reload();
+        } catch (err) {
+            showAlert(err.message, 'danger');
+        }
+    }
+
+    async function deleteFundItem() {
+        if (!confirm('Are you sure you want to delete this fund item?')) return;
+        try {
+            const res = await fetch(`/api/budget/fund-item/${currentEditItemId}`, { method: 'DELETE' });
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.detail || 'Failed to delete fund item');
+            }
+            bootstrap.Modal.getInstance(document.getElementById('editFundItemModal')).hide();
+            window.location.reload();
         } catch (err) {
             showAlert(err.message, 'danger');
         }
