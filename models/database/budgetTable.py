@@ -9,7 +9,7 @@ class BudgetTable(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
     budget_id = Column(Integer, ForeignKey("budget.id"), nullable=False)
-    isFund = Column(Boolean)
+    isFund = Column("isfund", Boolean)
 
     budget = relationship("Budget", back_populates="tables")
     
