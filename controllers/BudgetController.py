@@ -101,8 +101,8 @@ class BudgetController:
         result = db.query(func.sum(Transaction.amount)).filter(
             Transaction.budget_item_id == budget_item_id,
             Transaction.amount < 0,
-            func.strftime('%Y', Transaction.date) == str(year),
-            func.strftime('%m', Transaction.date) == f"{month:02d}"
+            extract('year', Transaction.date) == year,
+            extract('month', Transaction.date) == month
         ).scalar()
         return abs(result or 0)
 
@@ -112,8 +112,8 @@ class BudgetController:
         result = db.query(func.sum(Transaction.amount)).filter(
             Transaction.fund_item_id == fund_item_id,
             Transaction.amount < 0,
-            func.strftime('%Y', Transaction.date) == str(year),
-            func.strftime('%m', Transaction.date) == f"{month:02d}"
+            extract('year', Transaction.date) == year,
+            extract('month', Transaction.date) == month
         ).scalar()
         return abs(result or 0)
 
