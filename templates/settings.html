@@ -24,18 +24,27 @@
                     </thead>
                     <tbody>
                         {% for account in accounts %}
-                        <tr data-account-id="{{ account.id }}">
+                        <tr data-account-id="{{ account.id }}" {% if account.is_hidden %}class="text-muted"{% endif %}>
                             <td>
-                                <span class="account-name">{{ account.name }}</span>
+                                <span class="account-name">
+                                    {{ account.name }}
+                                    {% if account.is_hidden %}
+                                    <span class="badge bg-secondary ms-1">Hidden</span>
+                                    {% endif %}
+                                </span>
                                 <input type="text"
                                        class="form-control form-control-sm account-input d-none"
                                        value="{{ account.name }}"
                                        data-original="{{ account.name }}">
                             </td>
-                            <td class="text-end" style="width: 140px;">
+                            <td class="text-end" style="width: 200px;">
                                 <button class="btn btn-sm btn-outline-secondary edit-btn">Edit</button>
                                 <button class="btn btn-sm btn-primary save-btn d-none">Save</button>
                                 <button class="btn btn-sm btn-outline-secondary cancel-btn d-none">Cancel</button>
+                                <button class="btn btn-sm {{ 'btn-warning' if not account.is_hidden else 'btn-outline-secondary' }} hide-btn"
+                                        data-hidden="{{ 'true' if account.is_hidden else 'false' }}">
+                                    {{ 'Hide' if not account.is_hidden else 'Unhide' }}
+                                </button>
                             </td>
                         </tr>
                         {% endfor %}
@@ -59,6 +68,7 @@
         const editBtn = row.querySelector('.edit-btn');
         const saveBtn = row.querySelector('.save-btn');
         const cancelBtn = row.querySelector('.cancel-btn');
+        const hideBtn = row.querySelector('.hide-btn');
         const alertContainer = document.getElementById('alert-container');
 
         editBtn.addEventListener('click', () => {
@@ -98,8 +108,7 @@
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.detail || 'Failed to rename account');
 
-                // Update the display
-                nameSpan.textContent = data.name;
+                nameSpan.childNodes[0].textContent = data.name + ' ';
                 input.value = data.name;
                 input.dataset.original = data.name;
 
@@ -125,7 +134,47 @@
             }
         });
 
-        // Save on Enter key
+        hideBtn.addEventListener('click', async () => {
+            const isHidden = hideBtn.dataset.hidden === 'true';
+            hideBtn.disabled = true;
+            alertContainer.innerHTML = '';
+
+            try {
+                const res = await fetch(`/api/accounts/${accountId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ is_hidden: !isHidden }),
+                });
+
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'Failed to update account');
+
+                const nowHidden = data.is_hidden;
+                hideBtn.dataset.hidden = nowHidden ? 'true' : 'false';
+                hideBtn.textContent = nowHidden ? 'Unhide' : 'Hide';
+                hideBtn.className = `btn btn-sm ${nowHidden ? 'btn-outline-secondary' : 'btn-warning'} hide-btn`;
+                row.classList.toggle('text-muted', nowHidden);
+
+                const badge = nameSpan.querySelector('.badge');
+                if (nowHidden && !badge) {
+                    const b = document.createElement('span');
+                    b.className = 'badge bg-secondary ms-1';
+                    b.textContent = 'Hidden';
+                    nameSpan.appendChild(b);
+                } else if (!nowHidden && badge) {
+                    badge.remove();
+                }
+
+            } catch (err) {
+                alertContainer.innerHTML = `<div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    ${err.message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>`;
+            } finally {
+                hideBtn.disabled = false;
+            }
+        });
+
         input.addEventListener('keydown', e => {
             if (e.key === 'Enter') saveBtn.click();
             if (e.key === 'Escape') cancelBtn.click();

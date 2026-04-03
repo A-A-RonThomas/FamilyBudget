@@ -8,7 +8,8 @@ router = APIRouter()
 
 
 class RenameAccountRequest(BaseModel):
-    name: str
+    name: str | None = None
+    is_hidden: bool | None = None
 
 
 @router.patch("/accounts/{account_id}")
@@ -21,18 +22,20 @@ def rename_account(
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
 
-    name = body.name.lower().strip()
-    if not name:
-        raise HTTPException(status_code=400, detail="Name cannot be empty")
+    if body.name is not None:
+        name = body.name.lower().strip()
+        if not name:
+            raise HTTPException(status_code=400, detail="Name cannot be empty")
+        existing = db.query(Account).filter(
+            Account.name == name,
+            Account.id != account_id
+        ).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="An account with that name already exists")
+        account.name = name
 
-    # Check for duplicates
-    existing = db.query(Account).filter(
-        Account.name == name,
-        Account.id != account_id
-    ).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="An account with that name already exists")
+    if body.is_hidden is not None:
+        account.is_hidden = body.is_hidden
 
-    account.name = name
     db.commit()
-    return {"id": account.id, "name": account.name}
+    return {"id": account.id, "name": account.name, "is_hidden": account.is_hidden}

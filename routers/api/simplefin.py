@@ -38,28 +38,36 @@ def get_or_create_account_by_simplefin_id(
 def get_accounts(db: Session = Depends(get_db)):
     if not SIMPLEFIN_ACCESS_URL:
         raise HTTPException(status_code=500, detail="SIMPLEFIN_ACCESS_URL not configured")
-
     try:
         response = requests.get(f"{SIMPLEFIN_ACCESS_URL}/accounts", timeout=30)
         response.raise_for_status()
         data = response.json()
-
         accounts = []
         for acct in data.get("accounts", []):
             simplefin_id = acct.get("id", "")
             local = db.query(Account).filter(Account.simplefin_id == simplefin_id).first()
-            display_name = local.name if local else acct.get("name", "Unknown").lower()
+
+            if not local:
+                local = Account(
+                    name=acct.get("name", "Unknown").lower(),
+                    simplefin_id=simplefin_id,
+                    is_hidden=False
+                )
+                db.add(local)
+                db.commit()
+                db.refresh(local)
+
+            if local.is_hidden:
+                continue
 
             accounts.append({
                 "simplefin_id": simplefin_id,
-                "name": display_name,
+                "name": local.name,
                 "balance": acct.get("balance", "0"),
                 "currency": acct.get("currency", "USD"),
                 "org": acct.get("org", {}).get("name", "Unknown"),
             })
-
         return accounts
-
     except requests.RequestException as e:
         raise HTTPException(status_code=400, detail=f"SimpleFIN error: {str(e)}")
 
