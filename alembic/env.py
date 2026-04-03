@@ -18,7 +18,8 @@ config = context.config
 # Override sqlalchemy.url from our actual database path (same logic as core/database.py)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.path.join(BASE_DIR, "core/app.db")
-config.set_main_option("sqlalchemy.url", f"sqlite:///{DB_PATH}")
+DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DB_PATH}")
+config.set_main_option("sqlalchemy.url", DATABASE_URL)
 
 # Interpret the config file for Python logging.
 if config.config_file_name is not None:
