@@ -41,6 +41,25 @@
     .not-income {
         opacity: 0.5;
     }
+    @media (max-width: 576px) {
+        .col-hide-mobile {
+            display: none;
+        }
+        .table td, .table th {
+            padding: 0.4rem 0.3rem;
+            font-size: 0.85rem;
+        }
+        .expand-row > td {
+            padding: 0.75rem;
+            white-space: normal;
+        }
+        .expand-inner .field {
+            min-width: 120px;
+        }
+        .expand-inner .field.wide {
+            min-width: 100%;
+        }
+    }
 </style>
 
 <form method="get" class="mb-3 d-flex gap-2 align-items-center justify-content-center flex-wrap">
@@ -82,7 +101,7 @@
                 <th>Date</th>
                 <th>Store</th>
                 <th class="text-end">Amount</th>
-                <th>Account</th>
+                <th class="col-hide-mobile">Account</th>
                 <th>Budget Category</th>
                 {% if type == "incomes" %}<th>Income</th>{% endif %}
             </tr>
@@ -98,7 +117,7 @@
                 <td class="date-column">{{ row.date }}</td>
                 <td style="width: 300px;">{{ row.description | title }}</td>
                 <td style="width: 100px;" class="text-end">${{ '%.2f'|format(row.amount) }}</td>
-                <td style="width: 100px;">{{ row.account }}</td>
+                <td class="col-hide-mobile" style="width: 100px;">{{ row.account }}</td>
                 <td id="category-{{ row.id }}">{{ row.budget_category | title if row.budget_category else '—' }}</td>
                 {% if type == "incomes" %}
                 <td id="is-income-{{ row.id }}">{{ '✓' if row.is_income else '✗' }}</td>

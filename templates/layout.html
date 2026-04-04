@@ -27,7 +27,7 @@
 </head>
 <body class="d-flex flex-column min-vh-100 beige">
 <header class="d-flex justify-content-center py-3">
-    <ul class="nav nav-pills">
+    <ul class="nav nav-pills flex-wrap justify-content-center px-2">
         <li class="nav-item">
             <a href="{{ url_for('transactions') }}" class="nav-link {% if active_page == 'transactions' %}active{% endif %}">
                 Transactions
@@ -43,14 +43,14 @@
                 Import
             </a>
         </li>
-        <li class="nav-item">
+        <!-- <li class="nav-item">
             <a href="{{ url_for('settings_page') }}" class="nav-link {% if active_page == 'settings' %}active{% endif %}">
                 Settings
             </a>
-        </li>
+        </li> -->
     </ul>
 </header>
-<main role="main" class="container">
+<main role="main" class="container-fluid px-3">
     {% block content %}
     {% endblock content %}
 </div>

@@ -27,17 +27,35 @@
     .budget-table tbody tr:not(.table-secondary) {
         cursor: pointer;
     }
-    .budget-table tbody tr:not(.table-secondary):hover {
-        background-color: #f8f9fa;
+    .budget-item-row:hover, .fund-item-row:hover {
+        background-color: #e8f4fd !important;
+        outline: 2px solid #0d6efd;
+        outline-offset: -2px;
     }
     .overview-table td, .overview-table th {
         font-size: 0.875rem;
         padding: 0.4rem 0.6rem;
     }
+    @media (max-width: 576px) {
+        .budget-table td, .budget-table th {
+            padding: 0.4rem 0.3rem;
+            font-size: 0.8rem;
+        }
+        .amount-cell {
+            width: 70px;
+        }
+        .card-header {
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        .card-header .d-flex {
+            flex-wrap: wrap;
+        }
+    }
 </style>
 
 <!-- Month/Year navigation -->
-<form method="get" class="mb-4 mt-3 d-flex gap-2 align-items-center justify-content-center">
+<form method="get" class="mb-4 mt-3 d-flex gap-2 align-items-center justify-content-center flex-wrap">
     <label for="year">Year:</label>
     <input type="number" id="year" name="year"
            value="{{ year }}" min="2000" max="2100" class="form-control w-auto">
@@ -80,109 +98,108 @@
 
 {% else %}
 <!-- Budget exists -->
-<div class="d-flex justify-content-between align-items-center mb-3">
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
     <h5 class="mb-0">Budget — {{ month_name }}/{{ year }}</h5>
-    <div class="d-flex gap-2">
+    <div class="d-flex gap-2 flex-wrap">
         <button class="btn btn-sm btn-outline-primary" onclick="openAddTableModal()">+ Add Table</button>
         <button class="btn btn-sm btn-outline-danger" onclick="clearBudget()">Clear & Start Fresh</button>
     </div>
 </div>
 
-<div class="d-flex gap-4 align-items-start">
+<div class="d-flex gap-2 align-items-start">
 
-    <!-- ── Overview Panel (left, hidden on mobile) ─────────── -->
-    <div class="d-none d-lg-block flex-shrink-0" style="width: 360px;">
-        <div class="sticky-top" style="top: 1rem;">
+    <!-- ── Overview Panel (left, sticky, hidden on mobile) ─────────── -->
+    <div class="d-none d-lg-block flex-shrink-0 position-sticky ms-lg-5"
+         style="min-width: 300px; max-width: 500px; top: 1rem; align-self: flex-start;">
 
-            <!-- Budget Overview -->
-            <div class="card mb-3">
-                <div class="card-header fw-semibold">Budget Overview</div>
-                <div class="card-body p-0">
-                    <table class="table overview-table mb-0">
-                        <thead>
-                            <tr style="background-color: #e9ecef;">
-                                <th>Category</th>
-                                <th class="text-end">Planned</th>
-                                <th class="text-end">Actual</th>
-                                <th class="text-end">Remaining</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for row in budget.overview if not row.is_fund %}
-                            <tr>
-                                <td>{{ row.name }}</td>
-                                <td class="text-end">${{ '%.2f' | format(row.planned) }}</td>
-                                <td class="text-end">${{ '%.2f' | format(row.actual) }}</td>
-                                <td class="text-end {% if row.remaining < 0 %}text-danger fw-semibold{% else %}text-success{% endif %}">
-                                    ${{ '%.2f' | format(row.remaining | abs) }}
-                                </td>
-                            </tr>
-                            {% endfor %}
-                            <tr class="table-secondary fw-semibold">
-                                <td>Total</td>
-                                <td class="text-end">${{ '%.2f' | format(budget.total_planned) }}</td>
-                                <td class="text-end">${{ '%.2f' | format(budget.total_actual) }}</td>
-                                {% set total_remaining = budget.total_planned - budget.total_actual %}
-                                <td class="text-end {% if total_remaining < 0 %}text-danger{% else %}text-success{% endif %}">
-                                    ${{ '%.2f' | format(total_remaining | abs) }}
-                                </td>
-                            </tr>
-                            <tr class="fw-semibold">
-                                <td>Savings</td>
-                                <td class="text-end">${{ '%.2f' | format(budget.income) }}</td>
-                                <td class="text-end">${{ '%.2f' | format(budget.total_actual) }}</td>
-                                <td class="text-end {% if budget.savings < 0 %}text-danger{% else %}text-success{% endif %}">
-                                    ${{ '%.2f' | format(budget.savings | abs) }}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="text-muted">Income</td>
-                                <td class="text-end">${{ '%.2f' | format(budget.income) }}</td>
-                                <td class="text-end"></td>
-                                <td class="text-end"></td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div><!-- end Budget Overview card -->
+        <!-- Budget Overview -->
+        <div class="card mb-3">
+            <div class="card-header fw-semibold">Budget Overview</div>
+            <div class="card-body p-0">
+                <table class="table overview-table mb-0">
+                    <thead>
+                        <tr style="background-color: #e9ecef;">
+                            <th>Category</th>
+                            <th class="text-end">Planned</th>
+                            <th class="text-end">Actual</th>
+                            <th class="text-end">Remaining</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in budget.overview if not row.is_fund %}
+                        <tr>
+                            <td>{{ row.name }}</td>
+                            <td class="text-end">${{ '%.2f' | format(row.planned) }}</td>
+                            <td class="text-end">${{ '%.2f' | format(row.actual) }}</td>
+                            <td class="text-end {% if row.remaining < 0 %}text-danger fw-semibold{% else %}text-success{% endif %}">
+                                ${{ '%.2f' | format(row.remaining | abs) }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        <tr class="table-secondary fw-semibold">
+                            <td>Total</td>
+                            <td class="text-end">${{ '%.2f' | format(budget.total_planned) }}</td>
+                            <td class="text-end">${{ '%.2f' | format(budget.total_actual) }}</td>
+                            {% set total_remaining = budget.total_planned - budget.total_actual %}
+                            <td class="text-end {% if total_remaining < 0 %}text-danger{% else %}text-success{% endif %}">
+                                ${{ '%.2f' | format(total_remaining | abs) }}
+                            </td>
+                        </tr>
+                        <tr class="fw-semibold">
+                            <td>Savings</td>
+                            <td class="text-end">${{ '%.2f' | format(budget.income) }}</td>
+                            <td class="text-end">${{ '%.2f' | format(budget.total_actual) }}</td>
+                            <td class="text-end {% if budget.savings < 0 %}text-danger{% else %}text-success{% endif %}">
+                                ${{ '%.2f' | format(budget.savings | abs) }}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Income</td>
+                            <td class="text-end">${{ '%.2f' | format(budget.income) }}</td>
+                            <td class="text-end"></td>
+                            <td class="text-end"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div><!-- end Budget Overview card -->
 
-            <!-- Sinking Funds Overview -->
-            <div class="card">
-                <div class="card-header fw-semibold">Sinking Funds Overview</div>
-                <div class="card-body p-0">
-                    <table class="table overview-table mb-0">
-                        <thead>
-                            <tr style="background-color: #e9ecef;">
-                                <th>Category</th>
-                                <th class="text-end">Starting</th>
-                                <th class="text-end">Plus</th>
-                                <th class="text-end">Minus</th>
-                                <th class="text-end">Ending</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for row in budget.overview if row.is_fund %}
-                            <tr>
-                                <td>{{ row.name }}</td>
-                                <td class="text-end">${{ '%.2f' | format(row.starting) }}</td>
-                                <td class="text-end">${{ '%.2f' | format(row.plus) }}</td>
-                                <td class="text-end">${{ '%.2f' | format(row.minus) }}</td>
-                                <td class="text-end fw-semibold">${{ '%.2f' | format(row.ending) }}</td>
-                            </tr>
-                            {% endfor %}
-                            <tr class="table-secondary fw-semibold">
-                                <td>Total</td>
-                                <td class="text-end">${{ '%.2f' | format(budget.overview | selectattr('is_fund') | sum(attribute='starting')) }}</td>
-                                <td class="text-end">${{ '%.2f' | format(budget.overview | selectattr('is_fund') | sum(attribute='plus')) }}</td>
-                                <td class="text-end">${{ '%.2f' | format(budget.overview | selectattr('is_fund') | sum(attribute='minus')) }}</td>
-                                <td class="text-end">${{ '%.2f' | format(budget.overview | selectattr('is_fund') | sum(attribute='ending')) }}</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div><!-- end Sinking Funds Overview card -->
+        <!-- Sinking Funds Overview -->
+        <div class="card">
+            <div class="card-header fw-semibold">Sinking Funds Overview</div>
+            <div class="card-body p-0">
+                <table class="table overview-table mb-0">
+                    <thead>
+                        <tr style="background-color: #e9ecef;">
+                            <th>Category</th>
+                            <th class="text-end">Starting</th>
+                            <th class="text-end">Plus</th>
+                            <th class="text-end">Minus</th>
+                            <th class="text-end">Ending</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in budget.overview if row.is_fund %}
+                        <tr>
+                            <td>{{ row.name }}</td>
+                            <td class="text-end">${{ '%.2f' | format(row.starting) }}</td>
+                            <td class="text-end">${{ '%.2f' | format(row.plus) }}</td>
+                            <td class="text-end">${{ '%.2f' | format(row.minus) }}</td>
+                            <td class="text-end fw-semibold">${{ '%.2f' | format(row.ending) }}</td>
+                        </tr>
+                        {% endfor %}
+                        <tr class="table-secondary fw-semibold">
+                            <td>Total</td>
+                            <td class="text-end">${{ '%.2f' | format(budget.overview | selectattr('is_fund') | sum(attribute='starting')) }}</td>
+                            <td class="text-end">${{ '%.2f' | format(budget.overview | selectattr('is_fund') | sum(attribute='plus')) }}</td>
+                            <td class="text-end">${{ '%.2f' | format(budget.overview | selectattr('is_fund') | sum(attribute='minus')) }}</td>
+                            <td class="text-end">${{ '%.2f' | format(budget.overview | selectattr('is_fund') | sum(attribute='ending')) }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div><!-- end Sinking Funds Overview card -->
 
-        </div><!-- end sticky-top -->
     </div><!-- end overview panel -->
 
     <!-- ── Budget Tables (right) ───────────────────────────── -->
