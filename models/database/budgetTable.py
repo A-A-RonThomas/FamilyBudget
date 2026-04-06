@@ -13,9 +13,8 @@ class BudgetTable(Base):
 
     budget = relationship("Budget", back_populates="tables")
     
-    budget_items = relationship("BudgetItem", back_populates="budget_table", cascade="all, delete-orphan")
-    fund_items = relationship("FundItem", back_populates="budget_table", cascade="all, delete-orphan")
-
+    budget_items = relationship("BudgetItem", back_populates="budget_table", cascade="all, delete-orphan", order_by="BudgetItem.id")
+    fund_items = relationship("FundItem", back_populates="budget_table", cascade="all, delete-orphan", order_by="FundItem.id")
    
 
     def __repr__(self):
