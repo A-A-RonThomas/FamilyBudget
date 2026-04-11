@@ -101,7 +101,6 @@ class BudgetController:
     def compute_actual(budget_item_id: int, year: int, month: int, db: Session) -> Decimal:
         result = db.query(func.sum(Transaction.amount)).filter(
             Transaction.budget_item_id == budget_item_id,
-            Transaction.amount < 0,
             Transaction.is_deleted == False,
             extract('year', Transaction.date) == year,
             extract('month', Transaction.date) == month
