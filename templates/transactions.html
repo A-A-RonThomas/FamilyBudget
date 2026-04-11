@@ -41,6 +41,14 @@
     .not-income {
         opacity: 0.5;
     }
+    .ignored-transaction td {
+        opacity: 0.45;
+        text-decoration: line-through;
+        color: var(--text-muted) !important;
+    }
+    .ignored-transaction:hover td {
+        opacity: 0.6;
+    }
     @media (max-width: 576px) {
         .col-hide-mobile {
             display: none;
@@ -109,7 +117,7 @@
         <tbody>
             {% for row in rows %}
             <!-- Main row -->
-            <tr class="transaction-row {% if not row.vendor_id %}unreviewed{% endif %} {% if type == 'incomes' and not row.is_income %}not-income{% endif %}"
+            <tr class="transaction-row {% if not row.vendor_id and not row.is_deleted %}unreviewed{% endif %} {% if type == 'incomes' and not row.is_income %}not-income{% endif %} {% if row.is_deleted %}ignored-transaction{% endif %}"
                 id="row-{{ row.id }}"
                 data-description="{{ row.description }}"
                 data-is-income="{{ 'true' if row.is_income else 'false' }}"
@@ -198,11 +206,18 @@
                             </div>
                         </div>
                         {% endif %}
-                        <div class="field d-flex gap-2 align-items-end">
+                        <div class="d-flex gap-2 align-items-end">
                             <button class="btn btn-primary btn-sm"
                                     onclick="saveTransaction(event, '{{ row.id }}')">Save</button>
                             <button class="btn btn-secondary btn-sm"
                                     onclick="closeExpand(event, '{{ row.id }}')">Cancel</button>
+                            {% if row.is_deleted %}
+                            <button class="btn btn-secondary btn-sm"
+                                    onclick="restoreTransaction(event, '{{ row.id }}')" id="delete-btn-{{ row.id }}">Restore</button>
+                            {% else %}
+                            <button class="btn btn-danger btn-sm"
+                                    onclick="deleteTransaction(event, '{{ row.id }}')" id="delete-btn-{{ row.id }}">Ignore</button>
+                            {% endif %}
                         </div>
                     </div>
                 </td>
@@ -306,6 +321,51 @@
             openRowId = null;
             showAlert('Transaction saved.', 'success');
 
+        } catch (err) {
+            showAlert(err.message, 'danger');
+        }
+    }
+
+    async function deleteTransaction(event, rowId) {
+        event.stopPropagation();
+        if (!confirm('Ignore this transaction? It will be excluded from budgets and charts but remain visible here.')) return;
+        try {
+            const response = await fetch(`/api/transactions/${rowId}`, { method: 'DELETE' });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.detail || 'Delete failed');
+            document.getElementById(`row-${rowId}`).classList.add('ignored-transaction');
+            const btn = document.getElementById(`delete-btn-${rowId}`);
+            if (btn) {
+                btn.textContent = 'Restore';
+                btn.classList.remove('btn-danger');
+                btn.classList.add('btn-secondary');
+                btn.setAttribute('onclick', `restoreTransaction(event, '${rowId}')`);
+            }
+            document.getElementById(`expand-${rowId}`).classList.remove('open');
+            openRowId = null;
+            showAlert('Transaction ignored.', 'success');
+        } catch (err) {
+            showAlert(err.message, 'danger');
+        }
+    }
+
+    async function restoreTransaction(event, rowId) {
+        event.stopPropagation();
+        try {
+            const response = await fetch(`/api/transactions/${rowId}/restore`, { method: 'POST' });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.detail || 'Restore failed');
+            document.getElementById(`row-${rowId}`).classList.remove('ignored-transaction');
+            const btn = document.getElementById(`delete-btn-${rowId}`);
+            if (btn) {
+                btn.textContent = 'Ignore';
+                btn.classList.remove('btn-secondary');
+                btn.classList.add('btn-danger');
+                btn.setAttribute('onclick', `deleteTransaction(event, '${rowId}')`);
+            }
+            document.getElementById(`expand-${rowId}`).classList.remove('open');
+            openRowId = null;
+            showAlert('Transaction restored.', 'success');
         } catch (err) {
             showAlert(err.message, 'danger');
         }

@@ -26,6 +26,7 @@ class Transaction(Base):
     fund_item = relationship("FundItem", back_populates="transaction")
 
     is_income = Column(Boolean, default=True, nullable=False)
+    is_deleted = Column(Boolean, default=False, nullable=False)
 
     def __repr__(self):
         return f"<Transaction id={self.id} date={self.date} amount={self.amount}>"

@@ -37,6 +37,7 @@ class TransactionController:
                     'fund_item_id': t.fund_item_id,
                     'vendor_id': t.vendor_id,
                     'simplefin_id': t.simplefin_id,
+                    'is_deleted': t.is_deleted,
                 }
                 for t in purchases
             ]
@@ -72,6 +73,7 @@ class TransactionController:
                     'vendor_id': t.vendor_id,
                     'simplefin_id': t.simplefin_id,
                     'is_income': t.is_income,
+                    'is_deleted': t.is_deleted,
                 }
                 for t in incomes
             ]
@@ -117,6 +119,33 @@ class TransactionController:
             db.commit()
             return {"message": "success", "also_updated": len(matches)}
 
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+
+
+    @staticmethod
+    def delete_transaction(trans_id: int, db: Session) -> dict:
+        try:
+            t = db.query(Transaction).filter(Transaction.id == trans_id).first()
+            if not t:
+                raise HTTPException(status_code=404, detail="Transaction not found")
+            t.is_deleted = True
+            db.commit()
+            return {"message": "success"}
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @staticmethod
+    def restore_transaction(trans_id: int, db: Session) -> dict:
+        try:
+            t = db.query(Transaction).filter(Transaction.id == trans_id).first()
+            if not t:
+                raise HTTPException(status_code=404, detail="Transaction not found")
+            t.is_deleted = False
+            db.commit()
+            return {"message": "success"}
         except Exception as e:
             db.rollback()
             raise HTTPException(status_code=500, detail=str(e))

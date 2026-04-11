@@ -35,3 +35,11 @@ def update_transaction(trans_id: int, body: TransactionUpdateRequest, db: Sessio
         trans_id, body.date, body.description,
         body.budget_item_id, body.fund_item_id, body.is_income, db
     )
+
+@router.delete("/transactions/{trans_id}")
+def delete_transaction(trans_id: int, db: Session = Depends(get_db)):
+    return TransactionController.delete_transaction(trans_id, db)
+
+@router.post("/transactions/{trans_id}/restore")
+def restore_transaction(trans_id: int, db: Session = Depends(get_db)):
+    return TransactionController.restore_transaction(trans_id, db)
