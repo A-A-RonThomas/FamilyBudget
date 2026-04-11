@@ -1,5 +1,6 @@
 import os
 import requests
+from decimal import Decimal, InvalidOperation
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -18,10 +19,10 @@ router = APIRouter()
 
 
 def get_or_create_account_by_simplefin_id(
-    simplefin_id: str,
-    fallback_name: str,
-    db: Session
-) -> Account:
+        simplefin_id: str,
+        fallback_name: str,
+        db: Session
+    ) -> Account:
     account = db.query(Account).filter(Account.simplefin_id == simplefin_id).first()
     if not account:
         name = fallback_name.lower().strip()
@@ -34,7 +35,7 @@ def get_or_create_account_by_simplefin_id(
 # ---------------------------------------------------------------------------
 # 1. Get Accounts — fetches live account info from SimpleFIN
 # ---------------------------------------------------------------------------
-@router.get("/simplefin/accounts")
+@router.get("/simplefin/accounts", include_in_schema=False)
 def get_accounts(db: Session = Depends(get_db)):
     if not SIMPLEFIN_ACCESS_URL:
         raise HTTPException(status_code=500, detail="SIMPLEFIN_ACCESS_URL not configured")
@@ -122,8 +123,8 @@ def sync_transactions(payload: dict = {}, db: Session = Depends(get_db)):
                     continue
  
                 try:
-                    amount = float(txn.get("amount", "0"))
-                except ValueError:
+                    amount = Decimal(txn.get("amount", "0"))
+                except (ValueError, InvalidOperation):
                     total_skipped += 1
                     continue
  

@@ -1,3 +1,4 @@
+from decimal import Decimal
 from pydantic import BaseModel
 from datetime import date
 from typing import Optional
@@ -25,7 +26,7 @@ class TransactionResponse(TransactionBase):
     date: date
     description: str
     memo: Optional[str] = None
-    amount: float
+    amount: Decimal
     account: str
     budget_category: Optional[str] = None
     budget_item_id: Optional[int] = None

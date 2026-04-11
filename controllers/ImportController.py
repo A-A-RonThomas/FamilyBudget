@@ -1,3 +1,4 @@
+from decimal import Decimal
 from fastapi import HTTPException
 from models.database import Transaction, Account, Vendor, VendorCode
 from datetime import datetime
@@ -33,9 +34,9 @@ class ImportController:
             if "transfer" in row[1].lower():
                 continue
             try:
-                amount = float(row[4])
+                amount = Decimal(row[4])
                 if negate:
-                    amount = amount * -1
+                    amount = amount * Decimal('-1')
                 transactions.append({
                     "date": datetime.strptime(row[0], "%Y-%m-%d").date(),
                     "description": row[1].lower().strip(),

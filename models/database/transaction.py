@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, Date, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, String, Numeric, Date, ForeignKey, Boolean
 from sqlalchemy.orm import relationship
 from core.database import Base
 
@@ -10,7 +10,7 @@ class Transaction(Base):
     date = Column(Date, nullable=False)
     description = Column(String, nullable=False)       # payee from SimpleFIN (clean)
     memo = Column(String, nullable=True)               # memo from SimpleFIN
-    amount = Column(Float, nullable=False)
+    amount = Column(Numeric(10, 2), nullable=False)
     simplefin_id = Column(String, nullable=True, unique=True, index=True)  # null for manual entries
 
     account_id = Column(Integer, ForeignKey("account.id"), nullable=False)

@@ -1,3 +1,4 @@
+from decimal import Decimal
 from pydantic import BaseModel
 
 
@@ -28,14 +29,14 @@ class BudgetTableResponse(BudgetTableBase):
 # BudgetItem
 class BudgetItemBase(BaseModel):
     name: str
-    expected: float = 0
+    expected: Decimal = Decimal('0')
 
 class BudgetItemCreateRequest(BudgetItemBase):
     budget_table_id: int
 
 class BudgetItemResponse(BudgetItemBase):
     id: int
-    actual: float
+    actual: Decimal
     budget_table_id: int
 
     class Config:
@@ -44,17 +45,17 @@ class BudgetItemResponse(BudgetItemBase):
 # FundItem
 class FundItemBase(BaseModel):
     name: str
-    plus: float = 0
+    plus: Decimal = Decimal('0')
 
 class FundItemCreateRequest(FundItemBase):
     budget_table_id: int
-    starting_value: float = 0
+    starting_value: Decimal = Decimal('0')
 
 class FundItemResponse(FundItemBase):
     id: int
-    starting_value: float
-    minus: float
-    ending_value: float
+    starting_value: Decimal
+    minus: Decimal
+    ending_value: Decimal
     budget_table_id: int
 
     class Config:

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey
+from sqlalchemy import Column, Integer, String, Numeric, ForeignKey
 from sqlalchemy.orm import relationship
 from core.database import Base
 
@@ -8,10 +8,10 @@ class FundItem(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
-    starting_value = Column(Float, default=0)
-    plus = Column(Float, default=0)
-    minus = Column(Float, default=0)
-    ending_value = Column(Float, default=0)
+    starting_value = Column(Numeric(10, 2), default=0)
+    plus = Column(Numeric(10, 2), default=0)
+    minus = Column(Numeric(10, 2), default=0)
+    ending_value = Column(Numeric(10, 2), default=0)
     budget_table_id = Column(Integer, ForeignKey("budget_table.id"), nullable=False)
 
     budget_table = relationship("BudgetTable", back_populates="fund_items")

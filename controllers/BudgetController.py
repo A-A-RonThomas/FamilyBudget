@@ -1,3 +1,4 @@
+from decimal import Decimal
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
 from sqlalchemy import extract
@@ -97,25 +98,25 @@ class BudgetController:
 
 
     @staticmethod
-    def compute_actual(budget_item_id: int, year: int, month: int, db: Session) -> float:
+    def compute_actual(budget_item_id: int, year: int, month: int, db: Session) -> Decimal:
         result = db.query(func.sum(Transaction.amount)).filter(
             Transaction.budget_item_id == budget_item_id,
             Transaction.amount < 0,
             extract('year', Transaction.date) == year,
             extract('month', Transaction.date) == month
         ).scalar()
-        return abs(result or 0)
+        return abs(result or Decimal('0'))
 
 
     @staticmethod
-    def compute_fund_minus(fund_item_id: int, year: int, month: int, db: Session) -> float:
+    def compute_fund_minus(fund_item_id: int, year: int, month: int, db: Session) -> Decimal:
         result = db.query(func.sum(Transaction.amount)).filter(
             Transaction.fund_item_id == fund_item_id,
             Transaction.amount < 0,
             extract('year', Transaction.date) == year,
             extract('month', Transaction.date) == month
         ).scalar()
-        return abs(result or 0)
+        return abs(result or Decimal('0'))
 
 
     @staticmethod
@@ -195,7 +196,7 @@ class BudgetController:
             Transaction.is_income == True,
             extract('year', Transaction.date) == year,
             extract('month', Transaction.date) == month
-        ).scalar() or 0.0
+        ).scalar() or Decimal('0')
 
         total_planned = sum(o["planned"] for o in overview if not o["is_fund"])
         total_actual  = sum(o["actual"]  for o in overview if not o["is_fund"])
@@ -286,7 +287,7 @@ class BudgetController:
 
 
     @staticmethod
-    def add_budget_item(budget_table_id: int, name: str, expected: float, db: Session) -> dict:
+    def add_budget_item(budget_table_id: int, name: str, expected: Decimal, db: Session) -> dict:
         try:
             item = BudgetItem(name=name, expected=expected, actual=0, budget_table_id=budget_table_id)
             db.add(item)
@@ -299,7 +300,7 @@ class BudgetController:
 
 
     @staticmethod
-    def add_fund_item(budget_table_id: int, name: str, starting_value: float, plus: float, db: Session) -> dict:
+    def add_fund_item(budget_table_id: int, name: str, starting_value: Decimal, plus: Decimal, db: Session) -> dict:
         try:
             item = FundItem(
                 name=name,
@@ -326,7 +327,7 @@ class BudgetController:
 
 
     @staticmethod
-    def update_budget_item(item_id: int, name: str, expected: float, db: Session) -> dict:
+    def update_budget_item(item_id: int, name: str, expected: Decimal, db: Session) -> dict:
         try:
             item = db.query(BudgetItem).filter(BudgetItem.id == item_id).first()
             if not item:
@@ -341,7 +342,7 @@ class BudgetController:
 
 
     @staticmethod
-    def update_fund_item(item_id: int, name: str, plus: float, starting_value: float, db: Session) -> dict:
+    def update_fund_item(item_id: int, name: str, plus: Decimal, starting_value: Decimal, db: Session) -> dict:
         try:
             item = db.query(FundItem).filter(FundItem.id == item_id).first()
             if not item:
