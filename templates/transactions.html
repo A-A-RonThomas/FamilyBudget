@@ -16,7 +16,7 @@
     }
     .expand-row > td {
         padding: 1rem 1.5rem;
-        background-color: #f8f9fa;
+        background-color: var(--surface);
         border-bottom: 2px solid #dee2e6;
         width: 0;
         white-space: nowrap;
@@ -36,7 +36,7 @@
         min-width: 220px;
     }
     .unreviewed {
-        background-color: #fff3cd !important;
+        background-color: #f5e6a3 !important;
     }
     .not-income {
         opacity: 0.5;
@@ -91,11 +91,11 @@
 
     <button type="submit" class="btn btn-primary">Filter</button>
     <a href="{{ request.url.path }}?year={{ default_year }}&month={{ default_month }}&type=purchases" class="btn btn-secondary">Clear</a>
-    <a href="{{ request.url.path }}?type={{ type }}&view_all=true" class="btn btn-outline-secondary">View All</a>
+    <a href="{{ request.url.path }}?type={{ type }}&view_all=true" class="btn btn-secondary">View All</a>
 </form>
 
 <div class="table-responsive d-flex justify-content-center">
-    <table class="table table-striped w-auto beige">
+    <table class="table table-striped w-auto">
         <thead>
             <tr>
                 <th>Date</th>

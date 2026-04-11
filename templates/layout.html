@@ -6,6 +6,7 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 
 <!-- bootstrap -->
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" 
@@ -25,7 +26,7 @@
     </title>
     <link rel="icon" href="{{ url_for('static', path='favicon.ico') }}">
 </head>
-<body class="d-flex flex-column min-vh-100 beige">
+<body class="d-flex flex-column min-vh-100">
 <header class="d-flex justify-content-center py-3">
     <ul class="nav nav-pills flex-wrap justify-content-center px-2">
         <li class="nav-item">
@@ -41,6 +42,11 @@
         <li class="nav-item">
             <a href="{{ url_for('import_transactions_page') }}" class="nav-link {% if active_page == 'import_transactions_page' %}active{% endif %}">
                 Import
+            </a>
+        </li>
+        <li class="nav-item">
+            <a href="{{ url_for('visualizations_page') }}" class="nav-link {% if active_page == 'visualizations' %}active{% endif %}">
+                Visualizations
             </a>
         </li>
         <!-- <li class="nav-item">

@@ -2,38 +2,26 @@
 {% block content %}
 
 <style>
-    .budget-table thead th {
-        background-color: #e9ecef;
-        font-weight: 600;
-    }
-    .budget-table td, .budget-table th {
-        vertical-align: middle;
-    }
     .amount-cell {
         width: 100px;
         text-align: right;
     }
     .over-budget {
-        color: #dc3545;
+        color: var(--danger);
         font-weight: 600;
     }
     .under-budget {
-        color: #198754;
-    }
-    .table-title {
-        font-size: 1.1rem;
-        font-weight: 600;
+        color: var(--success);
     }
     .budget-table tbody tr:not(.table-secondary) {
         cursor: pointer;
     }
     .budget-item-row:hover, .fund-item-row:hover {
-        background-color: #e8f4fd !important;
-        outline: 2px solid #0d6efd;
+        background-color: var(--primary-bg) !important;
+        outline: 2px solid var(--primary);
         outline-offset: -2px;
     }
     .overview-table td, .overview-table th {
-        font-size: 0.875rem;
         padding: 0.4rem 0.6rem;
     }
     @media (max-width: 576px) {
@@ -101,8 +89,8 @@
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
     <h5 class="mb-0">Budget — {{ month_name }}/{{ year }}</h5>
     <div class="d-flex gap-2 flex-wrap">
-        <button class="btn btn-sm btn-outline-primary" onclick="openAddTableModal()">+ Add Table</button>
-        <button class="btn btn-sm btn-outline-danger" onclick="clearBudget()">Clear & Start Fresh</button>
+        <button class="btn btn-sm btn-primary" onclick="openAddTableModal()">+ Add Table</button>
+        <button class="btn btn-sm btn-danger" onclick="clearBudget()">Clear & Start Fresh</button>
     </div>
 </div>
 
@@ -118,7 +106,7 @@
             <div class="card-body p-0">
                 <table class="table overview-table mb-0">
                     <thead>
-                        <tr style="background-color: #e9ecef;">
+                        <tr>
                             <th>Category</th>
                             <th class="text-end">Planned</th>
                             <th class="text-end">Actual</th>
@@ -170,7 +158,7 @@
             <div class="card-body p-0">
                 <table class="table overview-table mb-0">
                     <thead>
-                        <tr style="background-color: #e9ecef;">
+                        <tr>
                             <th>Category</th>
                             <th class="text-end">Starting</th>
                             <th class="text-end">Plus</th>
@@ -214,13 +202,13 @@
                     data-table-id="{{ table.id }}"
                     onchange="updateTableName(this)">
                 <div class="d-flex gap-2">
-                    <button class="btn btn-sm btn-outline-secondary"
+                    <button class="btn btn-sm btn-primary"
                             data-table-id="{{ table.id }}"
                             data-is-fund="{{ 'true' if table.is_fund else 'false' }}"
                             onclick="openAddItemModal(this)">
                         + Add Item
                     </button>
-                    <button class="btn btn-sm btn-outline-danger"
+                    <button class="btn btn-sm btn-danger"
                             data-table-id="{{ table.id }}"
                             data-table-name="{{ table.name }}"
                             onclick="confirmDeleteTable(this)">

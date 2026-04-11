@@ -1,0 +1,412 @@
+{% extends "layout.html" %}
+{% block content %}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<style>
+    .chart-wrapper {
+        position: relative;
+        height: 300px;
+    }
+    .filter-label {
+        font-weight: 500;
+        font-size: 0.875rem;
+    }
+    .chart-empty {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        color: var(--text-muted);
+        font-size: 0.875rem;
+    }
+</style>
+
+<!-- Filter Bar -->
+<div class="card mb-4">
+    <div class="card-body py-2">
+        <div class="d-flex gap-3 align-items-center flex-wrap">
+            <span class="filter-label">Year:</span>
+            <input type="number" id="filter-year" class="form-control w-auto"
+                   value="{{ default_year }}" min="2000" max="2100">
+
+            <span class="filter-label">Month:</span>
+            <select id="filter-month" class="form-select w-auto">
+                <option value="">All Year</option>
+                <option value="1">January</option>
+                <option value="2">February</option>
+                <option value="3">March</option>
+                <option value="4">April</option>
+                <option value="5">May</option>
+                <option value="6">June</option>
+                <option value="7">July</option>
+                <option value="8">August</option>
+                <option value="9">September</option>
+                <option value="10">October</option>
+                <option value="11">November</option>
+                <option value="12">December</option>
+            </select>
+
+            <span class="filter-label">Trend window:</span>
+            <select id="filter-months" class="form-select w-auto">
+                <option value="6">6 months</option>
+                <option value="12" selected>12 months</option>
+                <option value="24">24 months</option>
+            </select>
+
+            <button class="btn btn-primary" onclick="loadAll()">Update</button>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Grid -->
+<div class="row g-3">
+
+    <!-- Cash Flow -->
+    <div class="col-12 col-xl-6">
+        <div class="card h-100">
+            <div class="card-header fw-semibold">Monthly Cash Flow</div>
+            <div class="card-body">
+                <div class="chart-wrapper">
+                    <canvas id="cashflow-chart"></canvas>
+                    <div class="chart-empty d-none" id="cashflow-empty">No data available</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Savings Trend -->
+    <div class="col-12 col-xl-6">
+        <div class="card h-100">
+            <div class="card-header fw-semibold">Net Savings Trend</div>
+            <div class="card-body">
+                <div class="chart-wrapper">
+                    <canvas id="savings-chart"></canvas>
+                    <div class="chart-empty d-none" id="savings-empty">No data available</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Spending by Category -->
+    <div class="col-12 col-xl-6">
+        <div class="card h-100">
+            <div class="card-header fw-semibold">Spending by Category</div>
+            <div class="card-body">
+                <div class="chart-wrapper">
+                    <canvas id="category-chart"></canvas>
+                    <div class="chart-empty d-none" id="category-empty">No categorized transactions found</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Budget vs Actual -->
+    <div class="col-12 col-xl-6">
+        <div class="card h-100">
+            <div class="card-header fw-semibold">
+                Budget vs Actual
+                <span class="text-muted fw-normal" style="font-size:0.8rem;" id="budget-month-label"></span>
+            </div>
+            <div class="card-body">
+                <div class="chart-wrapper">
+                    <canvas id="budget-chart"></canvas>
+                    <div class="chart-empty d-none" id="budget-empty">Select a specific month to see budget vs actual</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sinking Fund Balances -->
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header fw-semibold">Sinking Fund Balances Over Time</div>
+            <div class="card-body">
+                <div class="chart-wrapper" style="height: 320px;">
+                    <canvas id="funds-chart"></canvas>
+                    <div class="chart-empty d-none" id="funds-empty">No sinking fund data found</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<div id="alert-container" class="position-fixed bottom-0 end-0 p-3" style="z-index: 9999"></div>
+
+<script>
+    // ── Palette ──────────────────────────────────────────────────
+    const GREEN      = '#3d6b47';
+    const GREEN_SOFT = 'rgba(61, 107, 71, 0.15)';
+    const RED        = '#c0392b';
+    const RED_SOFT   = 'rgba(192, 57, 43, 0.15)';
+    const BLUE       = '#4a7cc7';
+    const BLUE_SOFT  = 'rgba(74, 124, 199, 0.15)';
+
+    const FUND_COLORS = [
+        '#3d6b47', '#4a7cc7', '#8e6dbf', '#c0762b',
+        '#2b8c8c', '#c0392b', '#5a8c3d', '#7c4a4a'
+    ];
+
+    Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
+    Chart.defaults.font.size = 12;
+    Chart.defaults.color = '#7f8c9a';
+
+    // ── Chart instances ──────────────────────────────────────────
+    let cashflowChart, savingsChart, categoryChart, budgetChart, fundsChart;
+
+    function destroyIfExists(chart) {
+        if (chart) chart.destroy();
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────
+    function getYear()   { return parseInt(document.getElementById('filter-year').value); }
+    function getMonth()  { const v = document.getElementById('filter-month').value; return v ? parseInt(v) : null; }
+    function getMonths() { return parseInt(document.getElementById('filter-months').value); }
+
+    function showEmpty(id, show) {
+        const el = document.getElementById(id);
+        el.classList.toggle('d-none', !show);
+    }
+
+    function showAlert(message, type) {
+        const container = document.getElementById('alert-container');
+        container.innerHTML = `
+            <div class="alert alert-${type} alert-dismissible fade show shadow" role="alert">
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>`;
+        setTimeout(() => container.innerHTML = '', 4000);
+    }
+
+    // ── Load all charts ──────────────────────────────────────────
+    async function loadAll() {
+        const year   = getYear();
+        const month  = getMonth();
+        const months = getMonths();
+
+        await Promise.all([
+            loadCashflow(months),
+            loadSavings(months),
+            loadCategory(year, month),
+            loadBudgetVsActual(year, month),
+            loadFundBalances(months),
+        ]);
+    }
+
+    // ── Cash Flow ────────────────────────────────────────────────
+    async function loadCashflow(months) {
+        try {
+            const res = await fetch(`/api/charts/cashflow?months=${months}`);
+            const data = await res.json();
+
+            destroyIfExists(cashflowChart);
+            const empty = !data.length || data.every(d => d.income === 0 && d.spending === 0);
+            showEmpty('cashflow-empty', empty);
+            if (empty) return;
+
+            cashflowChart = new Chart(document.getElementById('cashflow-chart'), {
+                type: 'line',
+                data: {
+                    labels: data.map(d => d.label),
+                    datasets: [
+                        {
+                            label: 'Income',
+                            data: data.map(d => d.income),
+                            borderColor: GREEN,
+                            backgroundColor: GREEN_SOFT,
+                            fill: true,
+                            tension: 0.35,
+                            pointRadius: 4,
+                        },
+                        {
+                            label: 'Spending',
+                            data: data.map(d => d.spending),
+                            borderColor: RED,
+                            backgroundColor: RED_SOFT,
+                            fill: true,
+                            tension: 0.35,
+                            pointRadius: 4,
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'top' } },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { callback: v => '$' + v.toLocaleString() } }
+                    }
+                }
+            });
+        } catch (e) { showAlert('Failed to load cash flow chart', 'danger'); }
+    }
+
+    // ── Savings Trend ────────────────────────────────────────────
+    async function loadSavings(months) {
+        try {
+            const res = await fetch(`/api/charts/savings-trend?months=${months}`);
+            const data = await res.json();
+
+            destroyIfExists(savingsChart);
+            const empty = !data.length || data.every(d => d.savings === 0);
+            showEmpty('savings-empty', empty);
+            if (empty) return;
+
+            savingsChart = new Chart(document.getElementById('savings-chart'), {
+                type: 'bar',
+                data: {
+                    labels: data.map(d => d.label),
+                    datasets: [{
+                        label: 'Net Savings',
+                        data: data.map(d => d.savings),
+                        backgroundColor: data.map(d => d.savings >= 0 ? GREEN : RED),
+                        borderRadius: 4,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { ticks: { callback: v => '$' + v.toLocaleString() } }
+                    }
+                }
+            });
+        } catch (e) { showAlert('Failed to load savings trend chart', 'danger'); }
+    }
+
+    // ── Spending by Category ─────────────────────────────────────
+    async function loadCategory(year, month) {
+        try {
+            const url = `/api/charts/spending-by-category?year=${year}` + (month ? `&month=${month}` : '');
+            const res = await fetch(url);
+            const data = await res.json();
+
+            destroyIfExists(categoryChart);
+            showEmpty('category-empty', !data.length);
+            if (!data.length) return;
+
+            categoryChart = new Chart(document.getElementById('category-chart'), {
+                type: 'doughnut',
+                data: {
+                    labels: data.map(d => d.name),
+                    datasets: [{
+                        data: data.map(d => d.total),
+                        backgroundColor: FUND_COLORS.slice(0, data.length),
+                        borderWidth: 2,
+                        borderColor: '#fff',
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'right', labels: { boxWidth: 12 } },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => ` $${ctx.parsed.toLocaleString(undefined, {minimumFractionDigits: 2})}`
+                            }
+                        }
+                    }
+                }
+            });
+        } catch (e) { showAlert('Failed to load category chart', 'danger'); }
+    }
+
+    // ── Budget vs Actual ─────────────────────────────────────────
+    async function loadBudgetVsActual(year, month) {
+        const label = document.getElementById('budget-month-label');
+
+        if (!month) {
+            destroyIfExists(budgetChart);
+            showEmpty('budget-empty', true);
+            label.textContent = '';
+            return;
+        }
+
+        try {
+            const res = await fetch(`/api/charts/budget-vs-actual?year=${year}&month=${month}`);
+            const data = await res.json();
+
+            destroyIfExists(budgetChart);
+            showEmpty('budget-empty', !data.length);
+            label.textContent = data.length ? `— ${document.getElementById('filter-month').selectedOptions[0].text} ${year}` : '';
+            if (!data.length) return;
+
+            budgetChart = new Chart(document.getElementById('budget-chart'), {
+                type: 'bar',
+                data: {
+                    labels: data.map(d => d.name),
+                    datasets: [
+                        {
+                            label: 'Planned',
+                            data: data.map(d => d.planned),
+                            backgroundColor: BLUE,
+                            borderRadius: 3,
+                        },
+                        {
+                            label: 'Actual',
+                            data: data.map(d => d.actual),
+                            backgroundColor: data.map(d => d.actual > d.planned ? RED : GREEN),
+                            borderRadius: 3,
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: { legend: { position: 'top' } },
+                    scales: {
+                        x: { ticks: { callback: v => '$' + v.toLocaleString() } }
+                    }
+                }
+            });
+        } catch (e) { showAlert('Failed to load budget vs actual chart', 'danger'); }
+    }
+
+    // ── Fund Balances ────────────────────────────────────────────
+    async function loadFundBalances(months) {
+        try {
+            const res = await fetch(`/api/charts/fund-balances?months=${months}`);
+            const data = await res.json();
+
+            destroyIfExists(fundsChart);
+            const empty = !data.labels || !data.labels.length || !Object.keys(data.series).length;
+            showEmpty('funds-empty', empty);
+            if (empty) return;
+
+            const datasets = Object.entries(data.series).map(([name, values], i) => ({
+                label: name.charAt(0).toUpperCase() + name.slice(1),
+                data: values,
+                borderColor: FUND_COLORS[i % FUND_COLORS.length],
+                backgroundColor: FUND_COLORS[i % FUND_COLORS.length] + '22',
+                fill: false,
+                tension: 0.3,
+                pointRadius: 4,
+                spanGaps: true,
+            }));
+
+            fundsChart = new Chart(document.getElementById('funds-chart'), {
+                type: 'line',
+                data: { labels: data.labels, datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'top' } },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { callback: v => '$' + v.toLocaleString() } }
+                    }
+                }
+            });
+        } catch (e) { showAlert('Failed to load fund balances chart', 'danger'); }
+    }
+
+    // ── Init ─────────────────────────────────────────────────────
+    // Pre-select current month
+    document.getElementById('filter-month').value = '{{ default_month }}';
+    loadAll();
+</script>
+
+{% endblock content %}
