@@ -25,7 +25,7 @@ Base = declarative_base()
 def get_db():
     db = SessionLocal()
     try:
-        print("----- " + DATABASE_URL + " -----")
+        # print("----- " + DATABASE_URL + " -----")
         yield db
     finally:
         db.close()

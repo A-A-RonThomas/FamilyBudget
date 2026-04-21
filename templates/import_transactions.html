@@ -16,10 +16,13 @@
 
                 {# Connected accounts list — populated on page load #}
                 <div id="accounts-list" class="mb-3">
-                    <p class="text-secondary small mb-2">Loading accounts...</p>
+                    <p class="text-muted small mb-2">Click below to load your connected accounts.</p>
                 </div>
 
-                <button id="sync-btn" class="btn btn-success w-100" disabled>
+                <button id="load-accounts-btn" class="btn btn-outline-primary w-100 mb-2" onclick="loadAccounts()">
+                    Load Accounts
+                </button>
+                <button id="sync-btn" class="btn btn-success w-100 d-none" disabled>
                     Pull Latest Transactions
                 </button>
             </div>
@@ -85,11 +88,18 @@
     async function loadAccounts() {
         const container = document.getElementById('accounts-list');
         const syncBtn = document.getElementById('sync-btn');
+        const loadBtn = document.getElementById('load-accounts-btn');
+
+        loadBtn.disabled = true;
+        loadBtn.textContent = 'Loading...';
 
         try {
             const res = await fetch('/api/simplefin/accounts');
             if (!res.ok) throw new Error('Could not reach SimpleFIN');
             const accounts = await res.json();
+
+            loadBtn.classList.add('d-none');
+            syncBtn.classList.remove('d-none');
 
             if (!accounts.length) {
                 container.innerHTML = '<p class="text-secondary small mb-2">No accounts found. Check your SIMPLEFIN_ACCESS_URL.</p>';
@@ -120,6 +130,8 @@
 
         } catch (err) {
             container.innerHTML = `<p class="text-danger small mb-2">${err.message}</p>`;
+            loadBtn.disabled = false;
+            loadBtn.textContent = 'Load Accounts';
         }
     }
 
@@ -266,7 +278,6 @@
     }
 
     // Init
-    loadAccounts();
     loadCsvAccounts();
 
 </script>

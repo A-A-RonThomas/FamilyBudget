@@ -122,7 +122,8 @@
         <div class="card">
             <div class="card-header fw-semibold">Sinking Fund Balances Over Time</div>
             <div class="card-body">
-                <div class="chart-wrapper" style="height: 320px;">
+                <div id="funds-legend" class="d-flex flex-wrap gap-2 mb-2" style="max-height: 80px; overflow-y: auto;"></div>
+                <div class="chart-wrapper" style="height: 480px;">
                     <canvas id="funds-chart"></canvas>
                     <div class="chart-empty d-none" id="funds-empty">No sinking fund data found</div>
                 </div>
@@ -145,7 +146,9 @@
 
     const FUND_COLORS = [
         '#3d6b47', '#4a7cc7', '#8e6dbf', '#c0762b',
-        '#2b8c8c', '#c0392b', '#5a8c3d', '#7c4a4a'
+        '#2b8c8c', '#c0392b', '#5a8c3d', '#7c4a4a',
+        '#1a6b8a', '#b07d2e', '#6b3d6b', '#2e7d32',
+        '#795548', '#0288d1', '#558b2f', '#ad1457'
     ];
 
     Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
@@ -384,7 +387,8 @@
                 backgroundColor: FUND_COLORS[i % FUND_COLORS.length] + '22',
                 fill: false,
                 tension: 0.3,
-                pointRadius: 4,
+                pointRadius: 5,
+                pointHoverRadius: 7,
                 spanGaps: true,
             }));
 
@@ -394,11 +398,34 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { position: 'top' } },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => ` ${ctx.dataset.label}: $${ctx.parsed.y.toLocaleString(undefined, {minimumFractionDigits: 2})}`
+                            }
+                        }
+                    },
                     scales: {
-                        y: { beginAtZero: true, ticks: { callback: v => '$' + v.toLocaleString() } }
+                        y: { ticks: { callback: v => '$' + v.toLocaleString() } }
                     }
                 }
+            });
+
+            // Custom legend with click-to-toggle
+            const legendEl = document.getElementById('funds-legend');
+            legendEl.innerHTML = '';
+            datasets.forEach((ds, i) => {
+                const item = document.createElement('span');
+                item.style.cssText = `cursor:pointer; display:inline-flex; align-items:center; gap:5px; font-size:0.8rem; padding:2px 8px; border-radius:12px; border:1px solid ${ds.borderColor}; color:${ds.borderColor}; white-space:nowrap;`;
+                item.innerHTML = `<span style="width:10px;height:10px;border-radius:50%;background:${ds.borderColor};display:inline-block;"></span>${ds.label}`;
+                item.addEventListener('click', () => {
+                    const meta = fundsChart.getDatasetMeta(i);
+                    meta.hidden = !meta.hidden;
+                    item.style.opacity = meta.hidden ? '0.35' : '1';
+                    fundsChart.update();
+                });
+                legendEl.appendChild(item);
             });
         } catch (e) { showAlert('Failed to load fund balances chart', 'danger'); }
     }
