@@ -121,6 +121,15 @@ class BudgetController:
 
 
     @staticmethod
+    def compute_effective_plus(fi, starting_value: Decimal) -> Decimal:
+        effective = fi.plus
+        if fi.minimum is not None and starting_value < fi.minimum:
+            effective = (fi.minimum - starting_value) + fi.plus
+        if fi.maximum is not None and starting_value + effective > fi.maximum:
+            effective = max(Decimal('0'), fi.maximum - starting_value)
+        return effective
+
+    @staticmethod
     def get_budget(year: int, month: int, db: Session) -> dict | None:
         db.expire_all()
         target_date = date(year, month, 1)
@@ -136,14 +145,18 @@ class BudgetController:
                 line_items = []
                 for fi in table.fund_items:
                     minus = BudgetController.compute_fund_minus(fi.id, year, month, db)
-                    ending = fi.starting_value + fi.plus - minus
+                    effective_plus = BudgetController.compute_effective_plus(fi, fi.starting_value)
+                    ending = fi.starting_value + effective_plus - minus
                     line_items.append({
                         "id": fi.id,
                         "name": fi.name,
                         "starting_value": fi.starting_value,
-                        "plus": fi.plus,
+                        "plus": effective_plus,
+                        "normal_plus": fi.plus,
                         "minus": minus,
-                        "ending_value": ending
+                        "ending_value": ending,
+                        "minimum": fi.minimum,
+                        "maximum": fi.maximum,
                     })
 
                 overview.append({
@@ -249,13 +262,17 @@ class BudgetController:
                         if table.isFund:
                             for fi in table.fund_items:
                                 prev_minus = BudgetController.compute_fund_minus(fi.id, prev_year, prev_month, db)
-                                prev_ending = fi.starting_value + fi.plus - prev_minus
+                                prev_eff_plus = BudgetController.compute_effective_plus(fi, fi.starting_value)
+                                prev_ending = fi.starting_value + prev_eff_plus - prev_minus
+                                new_eff_plus = BudgetController.compute_effective_plus(fi, prev_ending)
                                 db.add(FundItem(
                                     name=fi.name,
                                     starting_value=prev_ending,
                                     plus=fi.plus,
                                     minus=0,
-                                    ending_value=prev_ending,
+                                    ending_value=prev_ending + new_eff_plus,
+                                    minimum=fi.minimum,
+                                    maximum=fi.maximum,
                                     budget_table_id=new_table.id
                                 ))
                         else:
@@ -302,7 +319,7 @@ class BudgetController:
 
 
     @staticmethod
-    def add_fund_item(budget_table_id: int, name: str, starting_value: Decimal, plus: Decimal, db: Session) -> dict:
+    def add_fund_item(budget_table_id: int, name: str, starting_value: Decimal, plus: Decimal, db: Session, minimum: Decimal | None = None, maximum: Decimal | None = None) -> dict:
         try:
             item = FundItem(
                 name=name,
@@ -310,6 +327,8 @@ class BudgetController:
                 plus=plus,
                 minus=0,
                 ending_value=starting_value + plus,
+                minimum=minimum,
+                maximum=maximum,
                 budget_table_id=budget_table_id
             )
             db.add(item)
@@ -321,7 +340,9 @@ class BudgetController:
                 "starting_value": item.starting_value,
                 "plus": item.plus,
                 "minus": 0,
-                "ending_value": item.ending_value
+                "ending_value": item.ending_value,
+                "minimum": item.minimum,
+                "maximum": item.maximum,
             }
         except Exception as e:
             db.rollback()
@@ -344,7 +365,7 @@ class BudgetController:
 
 
     @staticmethod
-    def update_fund_item(item_id: int, name: str, plus: Decimal, starting_value: Decimal, db: Session) -> dict:
+    def update_fund_item(item_id: int, name: str, plus: Decimal, starting_value: Decimal, db: Session, minimum: Decimal | None = None, maximum: Decimal | None = None) -> dict:
         try:
             item = db.query(FundItem).filter(FundItem.id == item_id).first()
             if not item:
@@ -352,8 +373,10 @@ class BudgetController:
             item.name = name
             item.plus = plus
             item.starting_value = starting_value
+            item.minimum = minimum
+            item.maximum = maximum
             db.commit()
-            return {"id": item.id, "name": item.name, "plus": item.plus, "starting_value": item.starting_value}
+            return {"id": item.id, "name": item.name, "plus": item.plus, "starting_value": item.starting_value, "minimum": item.minimum, "maximum": item.maximum}
         except Exception as e:
             db.rollback()
             raise HTTPException(status_code=500, detail=str(e))

@@ -12,6 +12,8 @@ class FundItem(Base):
     plus = Column(Numeric(10, 2), default=0)
     minus = Column(Numeric(10, 2), default=0)
     ending_value = Column(Numeric(10, 2), default=0)
+    minimum = Column(Numeric(10, 2), nullable=True)
+    maximum = Column(Numeric(10, 2), nullable=True)
     budget_table_id = Column(Integer, ForeignKey("budget_table.id"), nullable=False)
 
     budget_table = relationship("BudgetTable", back_populates="fund_items")

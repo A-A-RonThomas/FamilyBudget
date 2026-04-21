@@ -37,7 +37,7 @@ def add_budget_item(body: BudgetItemCreateRequest, db: Session = Depends(get_db)
 
 @router.post("/budget/fund-item")
 def add_fund_item(body: FundItemCreateRequest, db: Session = Depends(get_db)):
-    return BudgetController.add_fund_item(body.budget_table_id, body.name, body.starting_value, body.plus, db)
+    return BudgetController.add_fund_item(body.budget_table_id, body.name, body.starting_value, body.plus, db, body.minimum, body.maximum)
 
 
 @router.patch("/budget/item/{item_id}")
@@ -47,7 +47,7 @@ def update_budget_item(item_id: int, body: BudgetItemCreateRequest, db: Session 
 
 @router.patch("/budget/fund-item/{item_id}")
 def update_fund_item(item_id: int, body: FundItemCreateRequest, db: Session = Depends(get_db)):
-    return BudgetController.update_fund_item(item_id, body.name, body.plus, body.starting_value, db)
+    return BudgetController.update_fund_item(item_id, body.name, body.plus, body.starting_value, db, body.minimum, body.maximum)
 
 @router.delete("/budget/table/{table_id}")
 def delete_table(table_id: int, db: Session = Depends(get_db)):

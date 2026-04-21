@@ -3,7 +3,6 @@ from fastapi import HTTPException
 from models.database import Transaction, Account, Vendor, VendorCode
 from datetime import datetime
 from sqlalchemy.orm import Session
-import hashlib
 import csv
 import io
 
@@ -48,12 +47,6 @@ class ImportController:
         return transactions
 
     @staticmethod
-    def generate_hash(date, amount, description) -> str:
-        return hashlib.sha256(
-            f"{date}|{amount}|{description}".encode("utf-8")
-        ).hexdigest()
-
-    @staticmethod
     def auto_categorize(description: str, db: Session) -> tuple[str, int | None]:
         if "check #" in description:
             return description, None
@@ -78,11 +71,12 @@ class ImportController:
             skipped = 0
 
             for t in transactions:
-                hash_str = ImportController.generate_hash(
-                    t["date"], t["amount"], t["description"]
-                )
-
-                existing = db.query(Transaction).filter(Transaction.hash == hash_str).first()
+                existing = db.query(Transaction).filter(
+                    Transaction.date == t["date"],
+                    Transaction.amount == t["amount"],
+                    Transaction.description == t["description"],
+                    Transaction.account_id == account.id
+                ).first()
                 if existing:
                     skipped += 1
                     continue
@@ -94,9 +88,7 @@ class ImportController:
                 db.add(Transaction(
                     date=t["date"],
                     description=normalized,
-                    orig_description=t["description"],
                     amount=t["amount"],
-                    hash=hash_str,
                     vendor_id=vendor_id,
                     account_id=account.id,
                     budget_item_id=None,

@@ -46,6 +46,8 @@ class BudgetItemResponse(BudgetItemBase):
 class FundItemBase(BaseModel):
     name: str
     plus: Decimal = Decimal('0')
+    minimum: Decimal | None = None
+    maximum: Decimal | None = None
 
 class FundItemCreateRequest(FundItemBase):
     budget_table_id: int

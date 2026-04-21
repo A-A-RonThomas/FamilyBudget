@@ -7,11 +7,11 @@
         text-align: right;
     }
     .over-budget {
-        color: var(--danger);
+        color: var(--danger) !important;
         font-weight: 600;
     }
     .under-budget {
-        color: var(--success);
+        color: var(--success) !important;
     }
     .budget-table tbody tr:not(.table-secondary) {
         cursor: pointer;
@@ -120,7 +120,7 @@
                             <td class="text-end">${{ '%.2f' | format(row.planned) }}</td>
                             <td class="text-end">${{ '%.2f' | format(row.actual) }}</td>
                             <td class="text-end {% if row.remaining < 0 %}text-danger fw-semibold{% else %}text-success{% endif %}">
-                                ${{ '%.2f' | format(row.remaining | abs) }}
+                                {% if row.remaining < 0 %}-{% endif %}${{ '%.2f' | format(row.remaining | abs) }}
                             </td>
                         </tr>
                         {% endfor %}
@@ -130,7 +130,7 @@
                             <td class="text-end">${{ '%.2f' | format(budget.total_actual) }}</td>
                             {% set total_remaining = budget.total_planned - budget.total_actual %}
                             <td class="text-end {% if total_remaining < 0 %}text-danger{% else %}text-success{% endif %}">
-                                ${{ '%.2f' | format(total_remaining | abs) }}
+                                {% if total_remaining < 0 %}-{% endif %}${{ '%.2f' | format(total_remaining | abs) }}
                             </td>
                         </tr>
                         <tr class="fw-semibold">
@@ -138,7 +138,7 @@
                             <td class="text-end">${{ '%.2f' | format(budget.income) }}</td>
                             <td class="text-end">${{ '%.2f' | format(budget.total_actual) }}</td>
                             <td class="text-end {% if budget.savings < 0 %}text-danger{% else %}text-success{% endif %}">
-                                ${{ '%.2f' | format(budget.savings | abs) }}
+                                {% if budget.savings < 0 %}-{% endif %}${{ '%.2f' | format(budget.savings | abs) }}
                             </td>
                         </tr>
                         <tr>
@@ -173,7 +173,7 @@
                             <td class="text-end">${{ '%.2f' | format(row.starting) }}</td>
                             <td class="text-end">${{ '%.2f' | format(row.plus) }}</td>
                             <td class="text-end">${{ '%.2f' | format(row.minus) }}</td>
-                            <td class="text-end fw-semibold">${{ '%.2f' | format(row.ending) }}</td>
+                            <td class="text-end fw-semibold {% if row.ending < 0 %}text-danger{% endif %}">{% if row.ending < 0 %}-{% endif %}${{ '%.2f' | format(row.ending | abs) }}</td>
                         </tr>
                         {% endfor %}
                         <tr class="table-secondary fw-semibold">
@@ -235,12 +235,14 @@
                             data-item-id="{{ item.id }}"
                             data-item-name="{{ item.name }}"
                             data-item-starting="{{ item.starting_value }}"
-                            data-item-plus="{{ item.plus }}">
+                            data-item-plus="{{ item.normal_plus }}"
+                            data-item-minimum="{{ item.minimum if item.minimum is not none else '' }}"
+                            data-item-maximum="{{ item.maximum if item.maximum is not none else '' }}">
                             <td>{{ item.name | title }}</td>
                             <td class="amount-cell">${{ '%.2f' | format(item.starting_value) }}</td>
                             <td class="amount-cell">${{ '%.2f' | format(item.plus) }}</td>
                             <td class="amount-cell">${{ '%.2f' | format(item.minus) }}</td>
-                            <td class="amount-cell fw-semibold">${{ '%.2f' | format(item.ending_value) }}</td>
+                            <td class="amount-cell fw-semibold {% if item.ending_value < 0 %}text-danger{% endif %}">{% if item.ending_value < 0 %}-{% endif %}${{ '%.2f' | format(item.ending_value | abs) }}</td>
                         </tr>
                         {% endfor %}
                         <tr class="table-secondary fw-semibold">
@@ -275,7 +277,7 @@
                             <td class="amount-cell">${{ '%.2f' | format(item.expected) }}</td>
                             <td class="amount-cell">${{ '%.2f' | format(item.actual) }}</td>
                             <td class="amount-cell {% if diff < 0 %}over-budget{% else %}under-budget{% endif %}">
-                                ${{ '%.2f' | format(diff | abs) }}
+                                {% if diff < 0 %}-{% endif %}${{ '%.2f' | format(diff | abs) }}
                             </td>
                         </tr>
                         {% endfor %}
@@ -356,8 +358,18 @@
                         <input type="number" id="item-starting-input" class="form-control" step="0.01" value="0">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label fw-semibold">Plus</label>
+                        <label class="form-label fw-semibold">Monthly Plus</label>
                         <input type="number" id="item-plus-input" class="form-control" step="0.01" value="0">
+                    </div>
+                    <div class="row g-2">
+                        <div class="col">
+                            <label class="form-label fw-semibold">Minimum <span class="text-muted fw-normal">(optional)</span></label>
+                            <input type="number" id="item-minimum-input" class="form-control" step="0.01" placeholder="None">
+                        </div>
+                        <div class="col">
+                            <label class="form-label fw-semibold">Maximum <span class="text-muted fw-normal">(optional)</span></label>
+                            <input type="number" id="item-maximum-input" class="form-control" step="0.01" placeholder="None">
+                        </div>
                     </div>
                 </div>
             </div>
@@ -416,8 +428,18 @@
                     <input type="number" id="edit-fund-item-starting" class="form-control" step="0.01">
                 </div>
                 <div class="mb-3">
-                    <label class="form-label fw-semibold">Plus</label>
+                    <label class="form-label fw-semibold">Monthly Plus</label>
                     <input type="number" id="edit-fund-item-plus" class="form-control" step="0.01">
+                </div>
+                <div class="row g-2">
+                    <div class="col">
+                        <label class="form-label fw-semibold">Minimum <span class="text-muted fw-normal">(optional)</span></label>
+                        <input type="number" id="edit-fund-item-minimum" class="form-control" step="0.01" placeholder="None">
+                    </div>
+                    <div class="col">
+                        <label class="form-label fw-semibold">Maximum <span class="text-muted fw-normal">(optional)</span></label>
+                        <input type="number" id="edit-fund-item-maximum" class="form-control" step="0.01" placeholder="None">
+                    </div>
                 </div>
             </div>
             <div class="modal-footer justify-content-between">
@@ -457,7 +479,9 @@
                 parseInt(this.dataset.itemId),
                 this.dataset.itemName,
                 parseFloat(this.dataset.itemStarting),
-                parseFloat(this.dataset.itemPlus)
+                parseFloat(this.dataset.itemPlus),
+                this.dataset.itemMinimum,
+                this.dataset.itemMaximum
             );
         });
     });
@@ -538,6 +562,8 @@
         document.getElementById('item-expected-input').value = '0';
         document.getElementById('item-starting-input').value = '0';
         document.getElementById('item-plus-input').value = '0';
+        document.getElementById('item-minimum-input').value = '';
+        document.getElementById('item-maximum-input').value = '';
         document.getElementById('addItemModalTitle').textContent = currentTableIsFund ? 'Add Fund Item' : 'Add Budget Item';
         document.getElementById('regular-fields').classList.toggle('d-none', currentTableIsFund);
         document.getElementById('fund-fields').classList.toggle('d-none', !currentTableIsFund);
@@ -552,10 +578,14 @@
             if (currentTableIsFund) {
                 const starting = parseFloat(document.getElementById('item-starting-input').value) || 0;
                 const plus = parseFloat(document.getElementById('item-plus-input').value) || 0;
+                const minimum = document.getElementById('item-minimum-input').value;
+                const maximum = document.getElementById('item-maximum-input').value;
                 res = await fetch('/api/budget/fund-item', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ budget_table_id: currentTableId, name, starting_value: starting, plus })
+                    body: JSON.stringify({ budget_table_id: currentTableId, name, starting_value: starting, plus,
+                        minimum: minimum !== '' ? parseFloat(minimum) : null,
+                        maximum: maximum !== '' ? parseFloat(maximum) : null })
                 });
             } else {
                 const expected = parseFloat(document.getElementById('item-expected-input').value) || 0;
@@ -618,11 +648,13 @@
     }
 
     // ── Edit Fund Item ───────────────────────────────────────
-    function openEditFundItemModal(itemId, name, starting, plus) {
+    function openEditFundItemModal(itemId, name, starting, plus, minimum, maximum) {
         currentEditItemId = itemId;
         document.getElementById('edit-fund-item-name').value = name;
         document.getElementById('edit-fund-item-starting').value = parseFloat(starting).toFixed(2);
         document.getElementById('edit-fund-item-plus').value = parseFloat(plus).toFixed(2);
+        document.getElementById('edit-fund-item-minimum').value = minimum || '';
+        document.getElementById('edit-fund-item-maximum').value = maximum || '';
         new bootstrap.Modal(document.getElementById('editFundItemModal')).show();
     }
 
@@ -630,12 +662,16 @@
         const name = document.getElementById('edit-fund-item-name').value.trim();
         const starting = parseFloat(document.getElementById('edit-fund-item-starting').value);
         const plus = parseFloat(document.getElementById('edit-fund-item-plus').value);
+        const minVal = document.getElementById('edit-fund-item-minimum').value;
+        const maxVal = document.getElementById('edit-fund-item-maximum').value;
         if (!name) { alert('Please enter an item name.'); return; }
         try {
             const res = await fetch(`/api/budget/fund-item/${currentEditItemId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ budget_table_id: 0, name, starting_value: starting, plus })
+                body: JSON.stringify({ budget_table_id: 0, name, starting_value: starting, plus,
+                    minimum: minVal !== '' ? parseFloat(minVal) : null,
+                    maximum: maxVal !== '' ? parseFloat(maxVal) : null })
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.detail || 'Failed to update fund item');
