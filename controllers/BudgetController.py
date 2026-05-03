@@ -123,11 +123,14 @@ class BudgetController:
     @staticmethod
     def compute_effective_plus(fi, starting_value: Decimal) -> Decimal:
         effective = fi.plus
+
+        # if minimum is less than starting value
         if fi.minimum is not None and starting_value < fi.minimum:
-            effective = (fi.minimum - starting_value) + fi.plus
+            effective = max((starting_value * -1 + fi.minimum), fi.plus)
         if fi.maximum is not None and starting_value + effective > fi.maximum:
             effective = max(Decimal('0'), fi.maximum - starting_value)
         return effective
+
 
     @staticmethod
     def get_budget(year: int, month: int, db: Session) -> dict | None:
