@@ -1,8 +1,9 @@
 from decimal import Decimal
 from fastapi import HTTPException
-from models.database import Transaction, Account, Vendor, VendorCode
-from datetime import datetime
+from models.database import Transaction, Account, Vendor, VendorCode, Budget, BudgetTable, BudgetItem, FundItem
+from datetime import datetime, date as date_type
 from sqlalchemy.orm import Session
+from sqlalchemy import extract, func
 import csv
 import io
 
@@ -55,7 +56,55 @@ class ImportController:
         if vendor_code:
             return vendor_code.vendor.name, vendor_code.vendor.id
 
+        vendor = db.query(Vendor).filter(Vendor.name == description).first()
+        if vendor:
+            return vendor.name, vendor.id
+
         return description, None
+
+    @staticmethod
+    def apply_vendor_rules(vendor_id: int | None, txn_date: date_type, db: Session) -> dict:
+        """Resolve a vendor's persistent rules (always-ignore / default category) for a
+        transaction landing on txn_date. Category names are matched against whichever
+        budget exists for that month, since budget items are recreated each month."""
+        result = {"is_deleted": False, "budget_item_id": None, "fund_item_id": None}
+        if not vendor_id:
+            return result
+
+        vendor = db.query(Vendor).filter(Vendor.id == vendor_id).first()
+        if not vendor:
+            return result
+
+        if vendor.always_ignore:
+            result["is_deleted"] = True
+            return result
+
+        if vendor.default_category_name:
+            budget = db.query(Budget).filter(
+                extract('year', Budget.date) == txn_date.year,
+                extract('month', Budget.date) == txn_date.month
+            ).first()
+            if budget:
+                if vendor.default_category_is_fund:
+                    item = db.query(FundItem).join(
+                        BudgetTable, FundItem.budget_table_id == BudgetTable.id
+                    ).filter(
+                        BudgetTable.budget_id == budget.id,
+                        func.lower(FundItem.name) == vendor.default_category_name.lower()
+                    ).first()
+                    if item:
+                        result["fund_item_id"] = item.id
+                else:
+                    item = db.query(BudgetItem).join(
+                        BudgetTable, BudgetItem.budget_table_id == BudgetTable.id
+                    ).filter(
+                        BudgetTable.budget_id == budget.id,
+                        func.lower(BudgetItem.name) == vendor.default_category_name.lower()
+                    ).first()
+                    if item:
+                        result["budget_item_id"] = item.id
+
+        return result
 
     @staticmethod
     async def process_import(file, account_id: int, negate: bool, db: Session) -> dict:
@@ -84,6 +133,7 @@ class ImportController:
                 normalized, vendor_id = ImportController.auto_categorize(
                     t["description"], db
                 )
+                rules = ImportController.apply_vendor_rules(vendor_id, t["date"], db)
 
                 db.add(Transaction(
                     date=t["date"],
@@ -91,8 +141,9 @@ class ImportController:
                     amount=t["amount"],
                     vendor_id=vendor_id,
                     account_id=account.id,
-                    budget_item_id=None,
-                    fund_item_id=None
+                    budget_item_id=rules["budget_item_id"],
+                    fund_item_id=rules["fund_item_id"],
+                    is_deleted=rules["is_deleted"]
                 ))
                 imported += 1
 
@@ -103,28 +154,3 @@ class ImportController:
             db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
 
-    @staticmethod
-    def save_vendor(name: str, budget_item_id: int, codes: list[str], db: Session) -> Vendor:
-        try:
-            vendor = db.query(Vendor).filter(Vendor.name == name).first()
-            if not vendor:
-                vendor = Vendor(name=name, default_budget_item_id=budget_item_id)
-                db.add(vendor)
-                db.flush()
-
-            for code in codes:
-                existing_code = db.query(VendorCode).filter(VendorCode.code == code).first()
-                if not existing_code:
-                    db.add(VendorCode(code=code, vendor_id=vendor.id))
-
-            db.commit()
-            return {
-                "id": vendor.id,
-                "name": vendor.name,
-                "default_budget_item_id": vendor.default_budget_item_id,
-                "default_fund_item_id": vendor.default_fund_item_id
-            }
-
-        except Exception as e:
-            db.rollback()
-            raise HTTPException(status_code=500, detail=str(e))

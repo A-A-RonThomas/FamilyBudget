@@ -14,6 +14,8 @@ class TransactionUpdateRequest(TransactionBase):
     budget_item_id: Optional[int] = None
     fund_item_id: Optional[int] = None
     is_income: Optional[bool] = None
+    always_ignore: bool = False
+    always_categorize: bool = False
 
 
 class TransactionUpdateResponse(TransactionBase):

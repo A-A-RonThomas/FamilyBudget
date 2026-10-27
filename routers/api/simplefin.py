@@ -143,7 +143,8 @@ def sync_transactions(payload: dict = {}, db: Session = Depends(get_db)):
                 memo = txn.get("memo", None)
  
                 normalized, vendor_id = ImportController.auto_categorize(description, db)
- 
+                rules = ImportController.apply_vendor_rules(vendor_id, txn_date, db)
+
                 db.add(Transaction(
                     date=txn_date,
                     description=normalized,
@@ -152,8 +153,9 @@ def sync_transactions(payload: dict = {}, db: Session = Depends(get_db)):
                     simplefin_id=simplefin_id,
                     account_id=account.id,
                     vendor_id=vendor_id,
-                    budget_item_id=None,
-                    fund_item_id=None,
+                    budget_item_id=rules["budget_item_id"],
+                    fund_item_id=rules["fund_item_id"],
+                    is_deleted=rules["is_deleted"],
                 ))
                 total_imported += 1
  

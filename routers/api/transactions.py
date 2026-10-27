@@ -33,7 +33,8 @@ def save_transactions(purchases: list, db: Session = Depends(get_db)):
 def update_transaction(trans_id: int, body: TransactionUpdateRequest, db: Session = Depends(get_db)):
     return TransactionController.update_transaction(
         trans_id, body.date, body.description,
-        body.budget_item_id, body.fund_item_id, body.is_income, db
+        body.budget_item_id, body.fund_item_id, body.is_income, db,
+        always_ignore=body.always_ignore, always_categorize=body.always_categorize
     )
 
 @router.delete("/transactions/{trans_id}")

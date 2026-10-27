@@ -5,7 +5,8 @@ from controllers import BudgetController
 from schemas.budget_schema import (
     CreateBudgetItemRequest, CreateBudgetItemResponse,
     BudgetTableCreateRequest, BudgetInitRequest,
-    BudgetItemCreateRequest, FundItemCreateRequest
+    BudgetItemCreateRequest, FundItemCreateRequest,
+    ExistingMonthResponse
 )
 
 router = APIRouter()
@@ -17,12 +18,17 @@ def update_table(table_id: int, body: BudgetTableCreateRequest, db: Session = De
 
 @router.post("/budget/init")
 def init_budget(body: BudgetInitRequest, db: Session = Depends(get_db)):
-    return BudgetController.init_budget(body.year, body.month, body.copy_previous, db)
+    return BudgetController.init_budget(body.year, body.month, body.copy_from_year, body.copy_from_month, db)
 
 
 @router.get("/budget")
 def get_budget(year: int, month: int, db: Session = Depends(get_db)):
     return BudgetController.get_budget(year, month, db)
+
+
+@router.get("/budget/months", response_model=list[ExistingMonthResponse])
+def get_existing_months(db: Session = Depends(get_db)):
+    return BudgetController.get_existing_months(db)
 
 
 @router.post("/budget/table")

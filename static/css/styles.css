@@ -1,16 +1,33 @@
 /* ── Design Tokens ──────────────────────────────────────────── */
 :root {
-  --bg:         #5a7a62;
-  --surface:    #dbeadb;
-  --border:     #aec8ae;
-  --text:       #2c3e50;
-  --text-muted: #7f8c9a;
-  --primary:    #3d6b47;
-  --primary-bg: #d4e8d4;
-  --success:    #2f855a;
-  --danger:     #c0392b;
-  --shadow:     0 1px 4px rgba(0, 0, 0, 0.07), 0 1px 2px rgba(0, 0, 0, 0.04);
-  --radius:     0.5rem;
+  --bg:           #396043;
+  --header:       #2e563a;
+  --nav-active:   #1d3925;
+  --surface:      #dbeadb;
+  --surface-2:    #c6dcc4;
+  --border:       #aec8ae;
+  --text:         #2c3e50;
+  --text-muted:   #7f8c9a;
+  --text-on-bg:   #eef5ee;
+  --primary:      #2c5936;
+  --primary-hover:#204629;
+  --primary-bg:   #d4e8d4;
+  --success:      #2f855a;
+  --danger:       #c0392b;
+  --warn-bg:      #f5e6a3;
+  --amber:        #93672b;
+  --amber-bg:     #f1e6cf;
+  --shadow:       0 1px 4px rgba(0, 0, 0, 0.07), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --radius:       0.5rem;
+}
+
+/* ── Utility ────────────────────────────────────────────────── */
+.tabular { font-variant-numeric: tabular-nums; }
+
+/* Text sitting directly on the page background (not inside a card) needs a
+   light color — the dark --text color is only legible on the light surfaces. */
+.text-on-bg, .text-on-bg label, .text-on-bg .form-label {
+  color: var(--text-on-bg) !important;
 }
 
 /* ── Base ───────────────────────────────────────────────────── */
@@ -23,7 +40,7 @@ body {
 
 /* ── Header / Nav ───────────────────────────────────────────── */
 header {
-  background: #466850;
+  background: var(--header);
   border-bottom: 1px solid rgba(0, 0, 0, 0.15);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
   padding-top: 0.6rem !important;
@@ -45,7 +62,7 @@ header {
 }
 
 .nav-pills .nav-link.active {
-  background-color: #2d4a35;
+  background-color: var(--nav-active);
   color: #e6f0e6;
 }
 
@@ -63,7 +80,7 @@ main {
 }
 
 .card-header {
-  background-color: #c6dcc4;
+  background-color: var(--surface-2);
   border-bottom: 1px solid var(--border);
   padding: 0.6rem 1rem;
   font-size: 0.875rem;
@@ -93,7 +110,7 @@ main {
 }
 
 .table thead > tr > * {
-  background-color: #c6dcc4;
+  background-color: var(--surface-2);
   color: var(--text-muted);
   font-size: 0.75rem;
   font-weight: 600;
@@ -106,7 +123,7 @@ main {
 
 .table-secondary,
 .table > tbody > tr.table-secondary > * {
-  --bs-table-bg: #c6dcc4;
+  --bs-table-bg: var(--surface-2);
   --bs-table-color: var(--text);
 }
 
@@ -129,8 +146,8 @@ main {
 }
 
 .btn-primary:hover {
-  background-color: #3a6ab5;
-  border-color: #3a6ab5;
+  background-color: var(--primary-hover);
+  border-color: var(--primary-hover);
 }
 
 .btn-outline-primary {
@@ -153,7 +170,7 @@ main {
 
 .form-control:focus, .form-select:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 0.2rem rgba(74, 124, 199, 0.15);
+  box-shadow: 0 0 0 0.2rem rgba(44, 89, 54, 0.18);
 }
 
 /* ── Modals ─────────────────────────────────────────────────── */
@@ -187,3 +204,18 @@ main {
 
 .text-success { color: var(--success) !important; }
 .text-danger  { color: var(--danger)  !important; }
+.text-amber   { color: var(--amber)   !important; }
+
+/* ── Rule badges (vendor "always ignore" / "always categorize") ──── */
+.rule-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--amber);
+}
+.rule-flag .form-check-input:checked {
+  background-color: var(--amber);
+  border-color: var(--amber);
+}

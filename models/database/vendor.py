@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
 from core.database import Base
 
@@ -9,11 +9,9 @@ class Vendor(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False, unique=True)
 
-    default_budget_item_id = Column(Integer, ForeignKey("budget_item.id"), nullable=True)
-    default_fund_item_id = Column(Integer, ForeignKey("fund_item.id"), nullable=True)
-
-    default_budget_item = relationship("BudgetItem")
-    default_fund_item = relationship("FundItem")
+    always_ignore = Column(Boolean, nullable=False, default=False)
+    default_category_name = Column(String, nullable=True)
+    default_category_is_fund = Column(Boolean, nullable=True)
 
     codes = relationship("VendorCode", back_populates="vendor")
     transactions = relationship("Transaction", back_populates="vendor")

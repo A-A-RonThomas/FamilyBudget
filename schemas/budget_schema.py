@@ -67,4 +67,10 @@ class FundItemResponse(FundItemBase):
 class BudgetInitRequest(BaseModel):
     year: int
     month: int
-    copy_previous: bool
+    copy_from_year: int | None = None
+    copy_from_month: int | None = None
+
+class ExistingMonthResponse(BaseModel):
+    year: int
+    month: int
+    label: str

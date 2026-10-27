@@ -1,7 +1,7 @@
 from fastapi import HTTPException
-from models.database import Transaction, Account, Vendor, VendorCode
+from models.database import Transaction, Account, Vendor, VendorCode, BudgetItem, FundItem
 from sqlalchemy.orm import Session
-from sqlalchemy import extract
+from sqlalchemy import extract, or_
 
 
 class TransactionController:
@@ -82,16 +82,16 @@ class TransactionController:
             raise HTTPException(status_code=500, detail=f"{str(e)}")
 
     @staticmethod
-    def update_transaction(trans_id: int, date, description: str, budget_item_id: int | None, fund_item_id: int | None, is_income: bool | None, db: Session) -> dict:
+    def update_transaction(
+        trans_id: int, date, description: str, budget_item_id: int | None, fund_item_id: int | None,
+        is_income: bool | None, db: Session, always_ignore: bool = False, always_categorize: bool = False
+    ) -> dict:
         try:
-            print(f"update_transaction called: trans_id={trans_id}, budget_item_id={budget_item_id}, fund_item_id={fund_item_id}")
             t = db.query(Transaction).filter(Transaction.id == trans_id).first()
             if not t:
                 raise HTTPException(status_code=404, detail="Transaction not found")
 
             t.date = date
-            t.budget_item_id = budget_item_id
-            t.fund_item_id = fund_item_id
             if is_income is not None:
                 t.is_income = is_income
 
@@ -104,17 +104,56 @@ class TransactionController:
 
             t.vendor_id = vendor.id
 
-            # Bulk match: update all unreviewed transactions with same description
-            matches = db.query(Transaction).filter(
-                Transaction.description == t.description,
-                Transaction.vendor_id == None,
-                Transaction.id != trans_id
-            ).all()
+            if always_ignore:
+                vendor.always_ignore = True
+                t.is_deleted = True
+                t.budget_item_id = None
+                t.fund_item_id = None
 
-            for match in matches:
-                match.budget_item_id = budget_item_id
-                match.fund_item_id = fund_item_id
-                match.vendor_id = vendor.id
+                # Always ignore applies to every transaction from this vendor, past and future —
+                # including ones never vendor-linked yet, matched by the same raw description
+                matches = db.query(Transaction).filter(
+                    Transaction.id != trans_id,
+                    or_(
+                        Transaction.vendor_id == vendor.id,
+                        Transaction.description == t.description
+                    )
+                ).all()
+                for match in matches:
+                    match.is_deleted = True
+                    match.vendor_id = vendor.id
+
+            else:
+                t.budget_item_id = budget_item_id
+                t.fund_item_id = fund_item_id
+
+                if always_categorize:
+                    category_name = None
+                    if budget_item_id:
+                        bi = db.query(BudgetItem).filter(BudgetItem.id == budget_item_id).first()
+                        category_name = bi.name if bi else None
+                    elif fund_item_id:
+                        fi = db.query(FundItem).filter(FundItem.id == fund_item_id).first()
+                        category_name = fi.name if fi else None
+                    if category_name:
+                        vendor.default_category_name = category_name
+                        vendor.default_category_is_fund = fund_item_id is not None
+
+                # Fill in the same category for other uncategorized transactions from this vendor,
+                # without overwriting anything already categorized manually elsewhere
+                matches = db.query(Transaction).filter(
+                    Transaction.id != trans_id,
+                    Transaction.budget_item_id == None,
+                    Transaction.fund_item_id == None,
+                    or_(
+                        Transaction.vendor_id == vendor.id,
+                        Transaction.description == t.description
+                    )
+                ).all()
+                for match in matches:
+                    match.budget_item_id = budget_item_id
+                    match.fund_item_id = fund_item_id
+                    match.vendor_id = vendor.id
 
             db.commit()
             return {"message": "success", "also_updated": len(matches)}

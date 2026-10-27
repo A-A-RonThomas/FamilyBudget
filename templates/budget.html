@@ -2,68 +2,126 @@
 {% block content %}
 
 <style>
-    .amount-cell {
-        width: 100px;
-        text-align: right;
+    .budget-page {
+        max-width: 720px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
+        padding-bottom: 3rem;
     }
-    .over-budget {
-        color: var(--danger) !important;
+
+    /* ── month nav ───────────────────────────────────────────── */
+    .month-nav {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+        color: var(--text-on-bg);
+        margin-top: 0.5rem;
+    }
+    .month-nav a.nav-arrow {
+        width: 2rem; height: 2rem;
+        border-radius: 50%;
+        border: 1px solid rgba(255,255,255,0.3);
+        background: rgba(255,255,255,0.08);
+        color: var(--text-on-bg);
+        font-size: 1.1rem;
+        line-height: 1;
+        text-decoration: none;
+        display: flex; align-items: center; justify-content: center;
+    }
+    .month-nav a.nav-arrow:hover { background: rgba(255,255,255,0.2); color: #fff; }
+    .month-nav .label { font-weight: 600; font-size: 1.1rem; }
+
+    .jump-form {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        justify-content: center;
+        flex-wrap: wrap;
+        font-size: 0.85rem;
+    }
+
+    /* ── month-at-a-glance ───────────────────────────────────── */
+    .glance-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        padding: 0.85rem 1.1rem 0.5rem;
+    }
+    .eyebrow {
+        font-size: 0.68rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-muted);
+    }
+    .glance-status {
+        font-size: 0.78rem;
+        font-weight: 600;
+        padding: 0.15rem 0.55rem;
+        border-radius: 999px;
+    }
+    .glance-status.over  { background: #f5e4e0; color: var(--danger); }
+    .glance-status.under { background: #e3f1e8; color: var(--success); }
+
+    .tiles {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1px;
+        background: var(--border);
+    }
+    .tile { background: var(--surface); padding: 0.75rem 0.9rem 0.85rem; }
+    .tile .tile-label {
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-muted);
         font-weight: 600;
     }
-    .under-budget {
-        color: var(--success) !important;
+    .tile .tile-value { font-size: 1.15rem; font-weight: 700; margin-top: 0.15rem; }
+    .tile .tile-sub { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.1rem; }
+    .tile.bad .tile-value { color: var(--danger); }
+    .tile.good .tile-value { color: var(--success); }
+
+    @media (max-width: 560px) {
+        .tiles { grid-template-columns: repeat(2, 1fr); }
     }
-    .budget-table tbody tr:not(.table-secondary) {
-        cursor: pointer;
+
+    .glance-bars { padding: 0.8rem 1.1rem 1rem; border-top: 1px solid var(--border); }
+    .bar-row { display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.3rem; }
+    .bar-row + .bar-row { margin-top: 0.55rem; }
+    .bar-row b { color: var(--text); font-weight: 600; }
+    .bar-track {
+        height: 0.5rem;
+        border-radius: 999px;
+        background: var(--surface-2);
+        overflow: hidden;
     }
+    .bar-fill { height: 100%; }
+
+    /* ── category cards ──────────────────────────────────────── */
+    .amount-cell { width: 100px; text-align: right; }
+    .over-budget { color: var(--danger) !important; font-weight: 600; }
+    .under-budget { color: var(--success) !important; }
+    .budget-table tbody tr:not(.table-secondary) { cursor: pointer; }
     .budget-item-row:hover, .fund-item-row:hover {
         background-color: var(--primary-bg) !important;
         outline: 2px solid var(--primary);
         outline-offset: -2px;
     }
-    .overview-table td, .overview-table th {
-        padding: 0.4rem 0.6rem;
-    }
+
     @media (max-width: 576px) {
         .budget-table td, .budget-table th {
             padding: 0.4rem 0.3rem;
             font-size: 0.8rem;
         }
-        .amount-cell {
-            width: 70px;
-        }
-        .card-header {
-            flex-wrap: wrap;
-            gap: 0.5rem;
-        }
-        .card-header .d-flex {
-            flex-wrap: wrap;
-        }
+        .amount-cell { width: 70px; }
+        .card-header { flex-wrap: wrap; gap: 0.5rem; }
+        .card-header .d-flex { flex-wrap: wrap; }
     }
 </style>
-
-<!-- Month/Year navigation -->
-<form method="get" class="mb-4 mt-3 d-flex gap-2 align-items-center justify-content-center flex-wrap">
-    <label for="year">Year:</label>
-    <input type="number" id="year" name="year"
-           value="{{ year }}" min="2000" max="2100" class="form-control w-auto">
-    <label for="month">Month:</label>
-    <select id="month" name="month" class="form-control w-auto">
-        <option value="1"  {% if month == 1  %}selected{% endif %}>January</option>
-        <option value="2"  {% if month == 2  %}selected{% endif %}>February</option>
-        <option value="3"  {% if month == 3  %}selected{% endif %}>March</option>
-        <option value="4"  {% if month == 4  %}selected{% endif %}>April</option>
-        <option value="5"  {% if month == 5  %}selected{% endif %}>May</option>
-        <option value="6"  {% if month == 6  %}selected{% endif %}>June</option>
-        <option value="7"  {% if month == 7  %}selected{% endif %}>July</option>
-        <option value="8"  {% if month == 8  %}selected{% endif %}>August</option>
-        <option value="9"  {% if month == 9  %}selected{% endif %}>September</option>
-        <option value="10" {% if month == 10 %}selected{% endif %}>October</option>
-        <option value="11" {% if month == 11 %}selected{% endif %}>November</option>
-        <option value="12" {% if month == 12 %}selected{% endif %}>December</option>
-    </select>
-    <button type="submit" class="btn btn-primary">Go</button>
-</form>
 
 <div id="alert-container" class="position-fixed bottom-0 end-0 p-3" style="z-index: 9999"></div>
 
@@ -74,229 +132,229 @@
      style="display:none;">
 </div>
 
-{% if not budget %}
-<!-- No budget exists for this month -->
-<div class="text-center mt-5">
-    <p class="text-muted mb-4">No budget found for {{ month_name }}/{{ year }}.</p>
-    <div class="d-flex gap-3 justify-content-center">
-        <button class="btn btn-primary" onclick="initBudget(true)">Copy Previous Month</button>
-        <button class="btn btn-outline-secondary" onclick="initBudget(false)">Start Fresh</button>
-    </div>
-</div>
+<div class="budget-page">
 
-{% else %}
-<!-- Budget exists -->
-<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-    <h5 class="mb-0">Budget — {{ month_name }}/{{ year }}</h5>
-    <div class="d-flex gap-2 flex-wrap">
+    <!-- ── Month nav ─────────────────────────────────────────── -->
+    <div class="month-nav">
+        <a class="nav-arrow" href="?year={{ prev_year }}&month={{ prev_month }}" aria-label="Previous month">&lsaquo;</a>
+        <span class="label">{{ month_name }} {{ year }}</span>
+        <a class="nav-arrow" href="?year={{ next_year }}&month={{ next_month }}" aria-label="Next month">&rsaquo;</a>
+    </div>
+    <form method="get" class="jump-form text-on-bg">
+        <label for="year">Jump to year:</label>
+        <input type="number" id="year" name="year" value="{{ year }}" min="2000" max="2100" class="form-control w-auto">
+        <label for="month">month:</label>
+        <select id="month" name="month" class="form-control w-auto">
+            <option value="1"  {% if month == 1  %}selected{% endif %}>January</option>
+            <option value="2"  {% if month == 2  %}selected{% endif %}>February</option>
+            <option value="3"  {% if month == 3  %}selected{% endif %}>March</option>
+            <option value="4"  {% if month == 4  %}selected{% endif %}>April</option>
+            <option value="5"  {% if month == 5  %}selected{% endif %}>May</option>
+            <option value="6"  {% if month == 6  %}selected{% endif %}>June</option>
+            <option value="7"  {% if month == 7  %}selected{% endif %}>July</option>
+            <option value="8"  {% if month == 8  %}selected{% endif %}>August</option>
+            <option value="9"  {% if month == 9  %}selected{% endif %}>September</option>
+            <option value="10" {% if month == 10 %}selected{% endif %}>October</option>
+            <option value="11" {% if month == 11 %}selected{% endif %}>November</option>
+            <option value="12" {% if month == 12 %}selected{% endif %}>December</option>
+        </select>
+        <button type="submit" class="btn btn-sm btn-primary">Go</button>
+    </form>
+
+    {% if not budget %}
+    <!-- No budget exists for this month — copy modal below handles this -->
+    <div class="text-center mt-4">
+        <p class="text-muted text-on-bg">No budget found for {{ month_name }} {{ year }} yet.</p>
+    </div>
+
+    {% else %}
+    <!-- ── Month at a glance ─────────────────────────────────── -->
+    {% set total_remaining = budget.total_planned - budget.total_actual %}
+    {% set funds_total_ending = budget.overview | selectattr('is_fund') | sum(attribute='ending') %}
+    <div class="card">
+        <div class="glance-head">
+            <span class="eyebrow">Month at a glance</span>
+            <span class="glance-status {% if total_remaining < 0 %}over{% else %}under{% endif %}">
+                {% if total_remaining < 0 %}${{ '%.2f' | format(total_remaining | abs) }} over{% else %}${{ '%.2f' | format(total_remaining) }} under{% endif %}
+            </span>
+        </div>
+        <div class="tiles">
+            <div class="tile">
+                <div class="tile-label">Income</div>
+                <div class="tile-value tabular">${{ '%.2f' | format(budget.income) }}</div>
+            </div>
+            <div class="tile {% if total_remaining < 0 %}bad{% endif %}">
+                <div class="tile-label">Spent</div>
+                <div class="tile-value tabular">${{ '%.2f' | format(budget.total_actual) }}</div>
+                <div class="tile-sub">planned ${{ '%.2f' | format(budget.total_planned) }}</div>
+            </div>
+            <div class="tile {% if budget.savings < 0 %}bad{% else %}good{% endif %}">
+                <div class="tile-label">Savings</div>
+                <div class="tile-value tabular">{% if budget.savings < 0 %}&minus;{% endif %}${{ '%.2f' | format(budget.savings | abs) }}</div>
+            </div>
+            <div class="tile {% if funds_total_ending < 0 %}bad{% endif %}">
+                <div class="tile-label">Sinking funds</div>
+                <div class="tile-value tabular">{% if funds_total_ending < 0 %}&minus;{% endif %}${{ '%.2f' | format(funds_total_ending | abs) }}</div>
+            </div>
+        </div>
+        {% set non_fund_rows = budget.overview | rejectattr('is_fund') | list %}
+        {% if non_fund_rows %}
+        <div class="glance-bars">
+            {% for row in non_fund_rows %}
+            {% set pct = ((row.actual / row.planned * 100) if row.planned else (100 if row.actual else 0)) %}
+            <div class="bar-row">
+                <span>{{ row.name }} <b class="tabular">${{ '%.2f' | format(row.actual) }}</b> / ${{ '%.2f' | format(row.planned) }}</span>
+                <span>{{ pct | round | int }}%</span>
+            </div>
+            <div class="bar-track">
+                <div class="bar-fill" style="width:{{ [pct, 100] | min }}%; background: {{ 'var(--danger)' if pct > 100 else 'var(--success)' }};"></div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- ── Actions ────────────────────────────────────────────── -->
+    <div class="d-flex justify-content-end gap-2">
         <button class="btn btn-sm btn-primary" onclick="openAddTableModal()">+ Add Table</button>
         <button class="btn btn-sm btn-danger" onclick="clearBudget()">Clear & Start Fresh</button>
     </div>
+
+    <!-- ── Category / fund tables ─────────────────────────────── -->
+    {% for table in budget.tables %}
+    <div class="card" id="table-{{ table.id }}">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <input class="table-title form-control-plaintext p-0 fw-semibold"
+                style="font-size: 1.1rem; width: auto; min-width: 150px;"
+                id="table-name-{{ table.id }}"
+                value="{{ table.name }}"
+                data-table-id="{{ table.id }}"
+                onchange="updateTableName(this)">
+            <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-primary"
+                        data-table-id="{{ table.id }}"
+                        data-is-fund="{{ 'true' if table.is_fund else 'false' }}"
+                        onclick="openAddItemModal(this)">
+                    + Add Item
+                </button>
+                <button class="btn btn-sm btn-danger"
+                        data-table-id="{{ table.id }}"
+                        data-table-name="{{ table.name }}"
+                        onclick="confirmDeleteTable(this)">
+                    Delete Table
+                </button>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            {% if table.is_fund %}
+            <table class="table budget-table mb-0">
+                <thead>
+                    <tr>
+                        <th>Category</th>
+                        <th class="amount-cell">Starting</th>
+                        <th class="amount-cell">Plus</th>
+                        <th class="amount-cell">Minus</th>
+                        <th class="amount-cell">Ending</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in table.line_items %}
+                    <tr class="fund-item-row"
+                        data-item-id="{{ item.id }}"
+                        data-item-name="{{ item.name }}"
+                        data-item-starting="{{ item.starting_value }}"
+                        data-item-plus="{{ item.normal_plus }}"
+                        data-item-minimum="{{ item.minimum if item.minimum is not none else '' }}"
+                        data-item-maximum="{{ item.maximum if item.maximum is not none else '' }}">
+                        <td>{{ item.name | title }}</td>
+                        <td class="amount-cell tabular">${{ '%.2f' | format(item.starting_value) }}</td>
+                        <td class="amount-cell tabular">${{ '%.2f' | format(item.plus) }}</td>
+                        <td class="amount-cell tabular">${{ '%.2f' | format(item.minus) }}</td>
+                        <td class="amount-cell tabular fw-semibold {% if item.ending_value < 0 %}text-danger{% endif %}">{% if item.ending_value < 0 %}-{% endif %}${{ '%.2f' | format(item.ending_value | abs) }}</td>
+                    </tr>
+                    {% endfor %}
+                    <tr class="table-secondary fw-semibold">
+                        <td>Total</td>
+                        <td class="amount-cell tabular">${{ '%.2f' | format(table.line_items | sum(attribute='starting_value')) }}</td>
+                        <td class="amount-cell tabular">${{ '%.2f' | format(table.line_items | sum(attribute='plus')) }}</td>
+                        <td class="amount-cell tabular">${{ '%.2f' | format(table.line_items | sum(attribute='minus')) }}</td>
+                        <td class="amount-cell tabular">${{ '%.2f' | format(table.line_items | sum(attribute='ending_value')) }}</td>
+                    </tr>
+                </tbody>
+            </table>
+            {% else %}
+            <table class="table budget-table mb-0">
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th class="amount-cell">Planned</th>
+                        <th class="amount-cell">Actual</th>
+                        <th class="amount-cell">Remaining</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in table.line_items %}
+                    {% set diff = item.expected - item.actual %}
+                    <tr class="budget-item-row"
+                        data-item-id="{{ item.id }}"
+                        data-item-name="{{ item.name }}"
+                        data-item-expected="{{ item.expected }}">
+                        <td>{{ item.name | title }}</td>
+                        <td class="amount-cell tabular">${{ '%.2f' | format(item.expected) }}</td>
+                        <td class="amount-cell tabular">${{ '%.2f' | format(item.actual) }}</td>
+                        <td class="amount-cell tabular {% if diff < 0 %}over-budget{% else %}under-budget{% endif %}">
+                            {% if diff < 0 %}-{% endif %}${{ '%.2f' | format(diff | abs) }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    <tr class="table-secondary fw-semibold">
+                        <td>Total</td>
+                        <td class="amount-cell tabular">${{ '%.2f' | format(table.line_items | sum(attribute='expected')) }}</td>
+                        <td class="amount-cell tabular">${{ '%.2f' | format(table.line_items | sum(attribute='actual')) }}</td>
+                        <td class="amount-cell"></td>
+                    </tr>
+                </tbody>
+            </table>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
 </div>
 
-<div class="d-flex gap-2 align-items-start">
-
-    <!-- ── Overview Panel (left, sticky, hidden on mobile) ─────────── -->
-    <div class="d-none d-lg-block flex-shrink-0 position-sticky ms-lg-5"
-         style="min-width: 300px; max-width: 500px; top: 1rem; align-self: flex-start;">
-
-        <!-- Budget Overview -->
-        <div class="card mb-3">
-            <div class="card-header fw-semibold">Budget Overview</div>
-            <div class="card-body p-0">
-                <table class="table overview-table mb-0">
-                    <thead>
-                        <tr>
-                            <th>Category</th>
-                            <th class="text-end">Planned</th>
-                            <th class="text-end">Actual</th>
-                            <th class="text-end">Remaining</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for row in budget.overview if not row.is_fund %}
-                        <tr>
-                            <td>{{ row.name }}</td>
-                            <td class="text-end">${{ '%.2f' | format(row.planned) }}</td>
-                            <td class="text-end">${{ '%.2f' | format(row.actual) }}</td>
-                            <td class="text-end {% if row.remaining < 0 %}text-danger fw-semibold{% else %}text-success{% endif %}">
-                                {% if row.remaining < 0 %}-{% endif %}${{ '%.2f' | format(row.remaining | abs) }}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                        <tr class="table-secondary fw-semibold">
-                            <td>Total</td>
-                            <td class="text-end">${{ '%.2f' | format(budget.total_planned) }}</td>
-                            <td class="text-end">${{ '%.2f' | format(budget.total_actual) }}</td>
-                            {% set total_remaining = budget.total_planned - budget.total_actual %}
-                            <td class="text-end {% if total_remaining < 0 %}text-danger{% else %}text-success{% endif %}">
-                                {% if total_remaining < 0 %}-{% endif %}${{ '%.2f' | format(total_remaining | abs) }}
-                            </td>
-                        </tr>
-                        <tr class="fw-semibold">
-                            <td>Savings</td>
-                            <td class="text-end">${{ '%.2f' | format(budget.income) }}</td>
-                            <td class="text-end">${{ '%.2f' | format(budget.total_actual) }}</td>
-                            <td class="text-end {% if budget.savings < 0 %}text-danger{% else %}text-success{% endif %}">
-                                {% if budget.savings < 0 %}-{% endif %}${{ '%.2f' | format(budget.savings | abs) }}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td class="text-muted">Income</td>
-                            <td class="text-end">${{ '%.2f' | format(budget.income) }}</td>
-                            <td class="text-end"></td>
-                            <td class="text-end"></td>
-                        </tr>
-                    </tbody>
-                </table>
+<!-- ── Copy-from-month Modal ────────────────────────────────── -->
+<div class="modal fade" id="copyMonthModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Copy from a previous month?</h5>
             </div>
-        </div><!-- end Budget Overview card -->
-
-        <!-- Sinking Funds Overview -->
-        <div class="card">
-            <div class="card-header fw-semibold">Sinking Funds Overview</div>
-            <div class="card-body p-0">
-                <table class="table overview-table mb-0">
-                    <thead>
-                        <tr>
-                            <th>Category</th>
-                            <th class="text-end">Starting</th>
-                            <th class="text-end">Plus</th>
-                            <th class="text-end">Minus</th>
-                            <th class="text-end">Ending</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for row in budget.overview if row.is_fund %}
-                        <tr>
-                            <td>{{ row.name }}</td>
-                            <td class="text-end">${{ '%.2f' | format(row.starting) }}</td>
-                            <td class="text-end">${{ '%.2f' | format(row.plus) }}</td>
-                            <td class="text-end">${{ '%.2f' | format(row.minus) }}</td>
-                            <td class="text-end fw-semibold {% if row.ending < 0 %}text-danger{% endif %}">{% if row.ending < 0 %}-{% endif %}${{ '%.2f' | format(row.ending | abs) }}</td>
-                        </tr>
+            <div class="modal-body">
+                <p class="text-muted small">No budget exists yet for {{ month_name }} {{ year }}. Categories and planned amounts carry forward, and sinking fund ending balances become the new starting balances.</p>
+                {% if existing_months %}
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Copy from</label>
+                    <select id="copy-source-select" class="form-select">
+                        {% for m in existing_months %}
+                        <option value="{{ m.year }}-{{ m.month }}"
+                            {% if default_copy_source and m.year == default_copy_source.year and m.month == default_copy_source.month %}selected{% endif %}>
+                            {{ m.label }}
+                        </option>
                         {% endfor %}
-                        <tr class="table-secondary fw-semibold">
-                            <td>Total</td>
-                            <td class="text-end">${{ '%.2f' | format(budget.overview | selectattr('is_fund') | sum(attribute='starting')) }}</td>
-                            <td class="text-end">${{ '%.2f' | format(budget.overview | selectattr('is_fund') | sum(attribute='plus')) }}</td>
-                            <td class="text-end">${{ '%.2f' | format(budget.overview | selectattr('is_fund') | sum(attribute='minus')) }}</td>
-                            <td class="text-end">${{ '%.2f' | format(budget.overview | selectattr('is_fund') | sum(attribute='ending')) }}</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div><!-- end Sinking Funds Overview card -->
-
-    </div><!-- end overview panel -->
-
-    <!-- ── Budget Tables (right) ───────────────────────────── -->
-    <div class="flex-grow-1">
-        {% for table in budget.tables %}
-        <div class="card mb-4 mx-auto" style="max-width: 500px;" id="table-{{ table.id }}">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <input class="table-title form-control-plaintext p-0 fw-semibold"
-                    style="font-size: 1.1rem; width: auto; min-width: 150px;"
-                    id="table-name-{{ table.id }}"
-                    value="{{ table.name }}"
-                    data-table-id="{{ table.id }}"
-                    onchange="updateTableName(this)">
-                <div class="d-flex gap-2">
-                    <button class="btn btn-sm btn-primary"
-                            data-table-id="{{ table.id }}"
-                            data-is-fund="{{ 'true' if table.is_fund else 'false' }}"
-                            onclick="openAddItemModal(this)">
-                        + Add Item
-                    </button>
-                    <button class="btn btn-sm btn-danger"
-                            data-table-id="{{ table.id }}"
-                            data-table-name="{{ table.name }}"
-                            onclick="confirmDeleteTable(this)">
-                        Delete Table
-                    </button>
+                    </select>
                 </div>
+                {% endif %}
             </div>
-            <div class="card-body p-0">
-                {% if table.is_fund %}
-                <!-- Fund table -->
-                <table class="table budget-table mb-0">
-                    <thead>
-                        <tr>
-                            <th>Category</th>
-                            <th class="amount-cell">Starting</th>
-                            <th class="amount-cell">Plus</th>
-                            <th class="amount-cell">Minus</th>
-                            <th class="amount-cell">Ending</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in table.line_items %}
-                        <tr class="fund-item-row"
-                            data-item-id="{{ item.id }}"
-                            data-item-name="{{ item.name }}"
-                            data-item-starting="{{ item.starting_value }}"
-                            data-item-plus="{{ item.normal_plus }}"
-                            data-item-minimum="{{ item.minimum if item.minimum is not none else '' }}"
-                            data-item-maximum="{{ item.maximum if item.maximum is not none else '' }}">
-                            <td>{{ item.name | title }}</td>
-                            <td class="amount-cell">${{ '%.2f' | format(item.starting_value) }}</td>
-                            <td class="amount-cell">${{ '%.2f' | format(item.plus) }}</td>
-                            <td class="amount-cell">${{ '%.2f' | format(item.minus) }}</td>
-                            <td class="amount-cell fw-semibold {% if item.ending_value < 0 %}text-danger{% endif %}">{% if item.ending_value < 0 %}-{% endif %}${{ '%.2f' | format(item.ending_value | abs) }}</td>
-                        </tr>
-                        {% endfor %}
-                        <tr class="table-secondary fw-semibold">
-                            <td>Total</td>
-                            <td class="amount-cell">${{ '%.2f' | format(table.line_items | sum(attribute='starting_value')) }}</td>
-                            <td class="amount-cell">${{ '%.2f' | format(table.line_items | sum(attribute='plus')) }}</td>
-                            <td class="amount-cell">${{ '%.2f' | format(table.line_items | sum(attribute='minus')) }}</td>
-                            <td class="amount-cell">${{ '%.2f' | format(table.line_items | sum(attribute='ending_value')) }}</td>
-                        </tr>
-                    </tbody>
-                </table>
-
-                {% else %}
-                <!-- Regular budget table -->
-                <table class="table budget-table mb-0">
-                    <thead>
-                        <tr>
-                            <th>Item</th>
-                            <th class="amount-cell">Planned</th>
-                            <th class="amount-cell">Actual</th>
-                            <th class="amount-cell">Remaining</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in table.line_items %}
-                        {% set diff = item.expected - item.actual %}
-                        <tr class="budget-item-row"
-                            data-item-id="{{ item.id }}"
-                            data-item-name="{{ item.name }}"
-                            data-item-expected="{{ item.expected }}">
-                            <td>{{ item.name | title }}</td>
-                            <td class="amount-cell">${{ '%.2f' | format(item.expected) }}</td>
-                            <td class="amount-cell">${{ '%.2f' | format(item.actual) }}</td>
-                            <td class="amount-cell {% if diff < 0 %}over-budget{% else %}under-budget{% endif %}">
-                                {% if diff < 0 %}-{% endif %}${{ '%.2f' | format(diff | abs) }}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                        <tr class="table-secondary fw-semibold">
-                            <td>Total</td>
-                            <td class="amount-cell">${{ '%.2f' | format(table.line_items | sum(attribute='expected')) }}</td>
-                            <td class="amount-cell">${{ '%.2f' | format(table.line_items | sum(attribute='actual')) }}</td>
-                            <td class="amount-cell"></td>
-                        </tr>
-                    </tbody>
-                </table>
+            <div class="modal-footer justify-content-between">
+                <button type="button" class="btn btn-secondary" onclick="startFresh()">Start Fresh</button>
+                {% if existing_months %}
+                <button type="button" class="btn btn-primary" onclick="copyFromSelected()">Copy</button>
                 {% endif %}
             </div>
         </div>
-        {% endfor %}
-    </div><!-- end tables column -->
-
-</div><!-- end two-column layout -->
-{% endif %}
+    </div>
+</div>
 
 <!-- ── Add Table Modal ───────────────────────────────────────── -->
 <div class="modal fade" id="addTableModal" tabindex="-1" aria-hidden="true">
@@ -462,6 +520,15 @@
     let currentTableIsFund = false;
     let currentEditItemId = null;
 
+    // ── Show copy-from-month modal if no budget exists ───────
+    // Deferred to DOMContentLoaded: this script runs before the Bootstrap JS
+    // bundle (loaded at the end of layout.html's body) has executed.
+    document.addEventListener('DOMContentLoaded', () => {
+        if (!budgetId) {
+            new bootstrap.Modal(document.getElementById('copyMonthModal')).show();
+        }
+    });
+
     // ── Row click listeners ──────────────────────────────────
     document.querySelectorAll('.budget-item-row').forEach(row => {
         row.addEventListener('click', function () {
@@ -487,12 +554,12 @@
     });
 
     // ── Init Budget ──────────────────────────────────────────
-    async function initBudget(copyPrevious) {
+    async function initBudget(copyFromYear, copyFromMonth) {
         try {
             const res = await fetch('/api/budget/init', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ year, month, copy_previous: copyPrevious })
+                body: JSON.stringify({ year, month, copy_from_year: copyFromYear, copy_from_month: copyFromMonth })
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.detail || 'Failed to initialize budget');
@@ -502,9 +569,19 @@
         }
     }
 
+    function copyFromSelected() {
+        const select = document.getElementById('copy-source-select');
+        const [srcYear, srcMonth] = select.value.split('-').map(Number);
+        initBudget(srcYear, srcMonth);
+    }
+
+    function startFresh() {
+        initBudget(null, null);
+    }
+
     async function clearBudget() {
         if (!confirm('Are you sure you want to clear this month\'s budget and start fresh?')) return;
-        await initBudget(false);
+        await initBudget(null, null);
     }
 
     // ── Add Table ────────────────────────────────────────────

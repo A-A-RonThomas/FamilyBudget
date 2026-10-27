@@ -27,7 +27,7 @@
     .expand-row > td {
         padding: 1rem 1.5rem;
         background-color: var(--surface);
-        border-bottom: 2px solid #dee2e6;
+        border-bottom: 2px solid var(--border);
         width: 0;
         white-space: nowrap;
     }
@@ -46,7 +46,7 @@
         min-width: 220px;
     }
     .unreviewed {
-        background-color: #f5e6a3 !important;
+        background-color: var(--warn-bg) !important;
     }
     .not-income {
         opacity: 0.5;
@@ -80,7 +80,7 @@
     }
 </style>
 
-<form method="get" class="mb-3 d-flex gap-2 align-items-center justify-content-center flex-wrap">
+<form method="get" class="mb-3 d-flex gap-2 align-items-center justify-content-center flex-wrap text-on-bg">
     <div class="btn-group" role="group">
         <a href="?type=purchases&year={{ year or default_year }}&month={{ month }}"
            class="btn btn-sm {% if type == 'purchases' %}btn-primary{% else %}btn-surface{% endif %}">
@@ -210,6 +210,25 @@
                                 </optgroup>
                                 {% endif %}
                             </select>
+                            <div class="form-check rule-flag mt-1">
+                                <input class="form-check-input" type="checkbox"
+                                       id="edit-always-categorize-{{ row.id }}"
+                                       onchange="toggleAlwaysCategorize('{{ row.id }}')">
+                                <label class="form-check-label" for="edit-always-categorize-{{ row.id }}">
+                                    Always use this category for this vendor
+                                </label>
+                            </div>
+                        </div>
+                        <div class="field">
+                            <label class="form-label fw-semibold mb-1">&nbsp;</label>
+                            <div class="form-check rule-flag">
+                                <input class="form-check-input" type="checkbox"
+                                       id="edit-always-ignore-{{ row.id }}"
+                                       onchange="toggleAlwaysIgnore('{{ row.id }}')">
+                                <label class="form-check-label" for="edit-always-ignore-{{ row.id }}">
+                                    Always ignore this vendor
+                                </label>
+                            </div>
                         </div>
                         {% if type == "incomes" %}
                         <div class="field">
@@ -282,12 +301,17 @@
         const isIncomeEl = document.getElementById(`edit-is-income-${rowId}`);
         const isIncome = isIncomeEl ? isIncomeEl.checked : null;
 
+        const alwaysIgnore = document.getElementById(`edit-always-ignore-${rowId}`).checked;
+        const alwaysCategorize = document.getElementById(`edit-always-categorize-${rowId}`).checked;
+
         try {
             const body = {
                 date: date,
                 description: description,
                 budget_item_id: (!isFund && itemId) ? itemId : null,
                 fund_item_id: (isFund && itemId) ? itemId : null,
+                always_ignore: alwaysIgnore,
+                always_categorize: alwaysCategorize,
             };
             if (isIncome !== null) body.is_income = isIncome;
 
@@ -302,7 +326,7 @@
 
             const mainRow = document.getElementById(`row-${rowId}`);
             const selectedOption = document.getElementById(`edit-budget-${rowId}`).selectedOptions[0];
-            const categoryText = selectedOption.value ? selectedOption.text : '—';
+            const categoryText = (!alwaysIgnore && selectedOption.value) ? selectedOption.text : '—';
             const savedDescription = mainRow.dataset.description;
 
             mainRow.cells[0].textContent = date;
@@ -321,6 +345,17 @@
                 }
             }
 
+            if (alwaysIgnore) {
+                mainRow.classList.add('ignored-transaction');
+                const btn = document.getElementById(`delete-btn-${rowId}`);
+                if (btn) {
+                    btn.textContent = 'Restore';
+                    btn.classList.remove('btn-danger');
+                    btn.classList.add('btn-secondary');
+                    btn.setAttribute('onclick', `restoreTransaction(event, '${rowId}')`);
+                }
+            }
+
             if (data.also_updated > 0) {
                 document.querySelectorAll('tr.transaction-row').forEach(row => {
                     const matchId = row.id.replace('row-', '');
@@ -334,11 +369,34 @@
 
             document.getElementById(`expand-${rowId}`).classList.remove('open');
             openRowId = null;
-            showAlert('Transaction saved.', 'success');
+
+            if (alwaysIgnore) {
+                showAlert('Saved — this vendor will always be ignored from now on.', 'success');
+            } else if (alwaysCategorize) {
+                showAlert('Saved — this vendor will always use this category from now on.', 'success');
+            } else {
+                showAlert('Transaction saved.', 'success');
+            }
 
         } catch (err) {
             showAlert(err.message, 'danger');
         }
+    }
+
+    function toggleAlwaysIgnore(rowId) {
+        const ignoreChecked = document.getElementById(`edit-always-ignore-${rowId}`).checked;
+        const categorySelect = document.getElementById(`edit-budget-${rowId}`);
+        const categorizeCheckbox = document.getElementById(`edit-always-categorize-${rowId}`);
+        categorySelect.disabled = ignoreChecked;
+        categorizeCheckbox.disabled = ignoreChecked;
+        if (ignoreChecked) categorizeCheckbox.checked = false;
+    }
+
+    function toggleAlwaysCategorize(rowId) {
+        const categorizeChecked = document.getElementById(`edit-always-categorize-${rowId}`).checked;
+        const ignoreCheckbox = document.getElementById(`edit-always-ignore-${rowId}`);
+        ignoreCheckbox.disabled = categorizeChecked;
+        if (categorizeChecked) ignoreCheckbox.checked = false;
     }
 
     async function deleteTransaction(event, rowId) {

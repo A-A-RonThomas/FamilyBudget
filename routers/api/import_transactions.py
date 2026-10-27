@@ -2,7 +2,6 @@ from fastapi import APIRouter, UploadFile, File, Form, Depends
 from sqlalchemy.orm import Session
 from core.database import get_db
 from controllers import ImportController
-from schemas.vendor_schema import SaveVendorRequest, SaveVendorResponse
 
 router = APIRouter()
 
@@ -28,16 +27,3 @@ async def import_transactions(
     db: Session = Depends(get_db)
 ):
     return await ImportController.process_import(file, account_id, negate, db)
-
-
-@router.post("/import/vendor", response_model=SaveVendorResponse)
-def save_vendor(
-    body: SaveVendorRequest,
-    db: Session = Depends(get_db)
-):
-    return ImportController.save_vendor(
-        name=body.name,
-        budget_item_id=body.budget_item_id,
-        codes=body.codes,
-        db=db
-    )

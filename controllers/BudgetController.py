@@ -6,6 +6,7 @@ from fastapi import HTTPException
 from models.database import *
 from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
+from calendar import month_name as cal_month_name
 
 
 class BudgetController:
@@ -232,7 +233,20 @@ class BudgetController:
 
 
     @staticmethod
-    def init_budget(year: int, month: int, copy_previous: bool, db: Session) -> dict:
+    def get_existing_months(db: Session) -> list[dict]:
+        dates = db.query(Budget.date).order_by(Budget.date.desc()).all()
+        return [
+            {
+                "year": d.date.year,
+                "month": d.date.month,
+                "label": f"{cal_month_name[d.date.month]} {d.date.year}"
+            }
+            for d in dates
+        ]
+
+
+    @staticmethod
+    def init_budget(year: int, month: int, copy_from_year: int | None, copy_from_month: int | None, db: Session) -> dict:
         try:
             target_date = date(year, month, 1)
 
@@ -245,51 +259,53 @@ class BudgetController:
             db.add(budget)
             db.flush()
 
-            if copy_previous:
-                prev_date = target_date - relativedelta(months=1)
-                prev_budget = db.query(Budget).filter(Budget.date == prev_date).first()
+            if copy_from_year and copy_from_month:
+                source_date = date(copy_from_year, copy_from_month, 1)
+                source_budget = db.query(Budget).filter(Budget.date == source_date).first()
 
-                if prev_budget:
-                    prev_year = prev_date.year
-                    prev_month = prev_date.month
+                if not source_budget:
+                    raise HTTPException(status_code=404, detail="Source month not found")
 
-                    for table in prev_budget.tables:
-                        new_table = BudgetTable(
-                            name=table.name,
-                            budget_id=budget.id,
-                            isFund=table.isFund
-                        )
-                        db.add(new_table)
-                        db.flush()
+                for table in source_budget.tables:
+                    new_table = BudgetTable(
+                        name=table.name,
+                        budget_id=budget.id,
+                        isFund=table.isFund
+                    )
+                    db.add(new_table)
+                    db.flush()
 
-                        if table.isFund:
-                            for fi in table.fund_items:
-                                prev_minus = BudgetController.compute_fund_minus(fi.id, prev_year, prev_month, db)
-                                prev_eff_plus = BudgetController.compute_effective_plus(fi, fi.starting_value)
-                                prev_ending = fi.starting_value + prev_eff_plus - prev_minus
-                                new_eff_plus = BudgetController.compute_effective_plus(fi, prev_ending)
-                                db.add(FundItem(
-                                    name=fi.name,
-                                    starting_value=prev_ending,
-                                    plus=fi.plus,
-                                    minus=0,
-                                    ending_value=prev_ending + new_eff_plus,
-                                    minimum=fi.minimum,
-                                    maximum=fi.maximum,
-                                    budget_table_id=new_table.id
-                                ))
-                        else:
-                            for bi in table.budget_items:
-                                db.add(BudgetItem(
-                                    name=bi.name,
-                                    expected=bi.expected,
-                                    actual=0,
-                                    budget_table_id=new_table.id
-                                ))
+                    if table.isFund:
+                        for fi in table.fund_items:
+                            source_minus = BudgetController.compute_fund_minus(fi.id, copy_from_year, copy_from_month, db)
+                            source_eff_plus = BudgetController.compute_effective_plus(fi, fi.starting_value)
+                            source_ending = fi.starting_value + source_eff_plus - source_minus
+                            new_eff_plus = BudgetController.compute_effective_plus(fi, source_ending)
+                            db.add(FundItem(
+                                name=fi.name,
+                                starting_value=source_ending,
+                                plus=fi.plus,
+                                minus=0,
+                                ending_value=source_ending + new_eff_plus,
+                                minimum=fi.minimum,
+                                maximum=fi.maximum,
+                                budget_table_id=new_table.id
+                            ))
+                    else:
+                        for bi in table.budget_items:
+                            db.add(BudgetItem(
+                                name=bi.name,
+                                expected=bi.expected,
+                                actual=0,
+                                budget_table_id=new_table.id
+                            ))
 
             db.commit()
             return {"message": "success", "budget_id": budget.id}
 
+        except HTTPException:
+            db.rollback()
+            raise
         except Exception as e:
             db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
