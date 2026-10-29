@@ -1,0 +1,12 @@
+# Hourly on the hour, 7:00am through 7:00pm Eastern (13 runs/day).
+# The explicit timezone handles DST regardless of the server's clock setting.
+[Unit]
+Description=Run FamilyBudget SimpleFIN sync hourly 7am-7pm Eastern
+
+[Timer]
+OnCalendar=*-*-* 07..19:00:00 America/New_York
+Persistent=false
+Unit=simplefin-sync.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,13 @@
+# One-shot SimpleFIN sync, triggered by simplefin-sync.timer.
+# Match User / WorkingDirectory / ExecStart's venv path to budget.service.
+[Unit]
+Description=FamilyBudget SimpleFIN transaction sync
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=CHANGE_ME
+WorkingDirectory=/path/to/FamilyBudget
+ExecStart=/path/to/FamilyBudget/venv/bin/python -m scripts.simplefin_sync
+TimeoutStartSec=120

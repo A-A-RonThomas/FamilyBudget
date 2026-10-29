@@ -76,72 +76,75 @@ def get_accounts(db: Session = Depends(get_db)):
 # ---------------------------------------------------------------------------
 # 2. Sync Transactions — deduplicates on simplefin_id
 # ---------------------------------------------------------------------------
-@router.post("/simplefin/sync")
-def sync_transactions(payload: dict = {}, db: Session = Depends(get_db)):
+class SimpleFinError(Exception):
+    pass
+
+
+def run_simplefin_sync(db: Session, days: int = 90, account_ids: list | None = None) -> dict:
+    """Pull transactions from SimpleFIN and insert any new ones. Shared by the
+    /simplefin/sync endpoint and the scheduled scripts/simplefin_sync.py job."""
     if not SIMPLEFIN_ACCESS_URL:
-        raise HTTPException(status_code=500, detail="SIMPLEFIN_ACCESS_URL not configured")
- 
-    days = payload.get("days", 90)
-    account_ids = payload.get("account_ids", [])  # list of simplefin_ids; empty = all
+        raise SimpleFinError("SIMPLEFIN_ACCESS_URL not configured")
+
+    account_ids = account_ids or []  # list of simplefin_ids; empty = all
     start_date = datetime.now() - timedelta(days=days)
     start_unix = int(start_date.timestamp())
- 
+
     try:
         url = f"{SIMPLEFIN_ACCESS_URL}/accounts?start-date={start_unix}&transactions=1"
         response = requests.get(url, timeout=30)
         response.raise_for_status()
         data = response.json()
- 
     except requests.RequestException as e:
-        raise HTTPException(status_code=400, detail=f"SimpleFIN error: {str(e)}")
- 
+        raise SimpleFinError(f"SimpleFIN error: {str(e)}")
+
     total_imported = 0
     total_skipped = 0
- 
+
     try:
         for acct in data.get("accounts", []):
             simplefin_account_id = acct.get("id", "")
- 
+
             # Skip accounts not in the selected list (if a list was provided)
             if account_ids and simplefin_account_id not in account_ids:
                 continue
- 
+
             fallback_name = acct.get("name", "unknown")
             account = get_or_create_account_by_simplefin_id(simplefin_account_id, fallback_name, db)
- 
+
             for txn in acct.get("transactions", []):
                 simplefin_id = txn.get("id")
                 if not simplefin_id:
                     total_skipped += 1
                     continue
- 
+
                 existing = db.query(Transaction).filter(
                     Transaction.simplefin_id == simplefin_id
                 ).first()
                 if existing:
                     total_skipped += 1
                     continue
- 
+
                 try:
                     amount = Decimal(txn.get("amount", "0"))
                 except (ValueError, InvalidOperation):
                     total_skipped += 1
                     continue
- 
+
                 posted = txn.get("posted")
                 if not posted:
                     total_skipped += 1
                     continue
                 txn_date = datetime.fromtimestamp(posted).date()
- 
+
                 description = (
                     txn.get("payee") or
                     txn.get("description") or
                     simplefin_id
                 ).lower().strip()
- 
+
                 memo = txn.get("memo", None)
- 
+
                 normalized, vendor_id = ImportController.auto_categorize(description, db)
                 rules = ImportController.apply_vendor_rules(vendor_id, txn_date, db)
 
@@ -158,11 +161,26 @@ def sync_transactions(payload: dict = {}, db: Session = Depends(get_db)):
                     is_deleted=rules["is_deleted"],
                 ))
                 total_imported += 1
- 
+
         db.commit()
- 
-    except Exception as e:
+
+    except Exception:
         db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
- 
+        raise
+
     return {"imported": total_imported, "skipped": total_skipped}
+
+
+@router.post("/simplefin/sync")
+def sync_transactions(payload: dict = {}, db: Session = Depends(get_db)):
+    try:
+        return run_simplefin_sync(
+            db,
+            days=payload.get("days", 90),
+            account_ids=payload.get("account_ids", []),
+        )
+    except SimpleFinError as e:
+        status = 500 if "not configured" in str(e) else 400
+        raise HTTPException(status_code=status, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

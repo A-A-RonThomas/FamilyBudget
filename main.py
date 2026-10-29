@@ -10,6 +10,7 @@ from routers.pages import settings as settings_pages
 from routers.api import accounts as accounts_api
 from routers.pages import visualizations as visualizations_pages
 from routers.api import charts as charts_api
+from routers.api import notifications as notifications_api
 from core.database import Base, engine, DB_PATH
 from contextlib import asynccontextmanager
 from models.database import *
@@ -38,6 +39,7 @@ app.include_router(simplefin.router, prefix="/api", tags=["SimpleFIN API"])
 app.include_router(settings_pages.router)
 app.include_router(accounts_api.router, prefix="/api", tags=["Accounts API"])
 app.include_router(charts_api.router, prefix="/api", tags=["Charts API"])
+app.include_router(notifications_api.router, prefix="/api", tags=["Notifications API"])
 
 
 app.include_router(
