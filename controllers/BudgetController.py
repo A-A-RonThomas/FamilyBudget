@@ -11,6 +11,53 @@ from calendar import month_name as cal_month_name
 
 class BudgetController:
 
+    # ── Month locking ────────────────────────────────────────────
+    @staticmethod
+    def assert_budget_unlocked(budget):
+        if budget is not None and budget.is_locked:
+            raise HTTPException(
+                status_code=423,
+                detail=f"{cal_month_name[budget.date.month]} {budget.date.year} is locked. Unlock it on the budget page to make changes."
+            )
+
+    @staticmethod
+    def assert_month_unlocked(d: date, db: Session):
+        budget = db.query(Budget).filter(Budget.date == d.replace(day=1)).first()
+        BudgetController.assert_budget_unlocked(budget)
+
+    @staticmethod
+    def open_date_for(d: date, db: Session) -> date:
+        """Date an imported transaction should be recorded on: unchanged unless its month is
+        locked, in which case the 1st of the earliest unlocked month after it."""
+        locked = {r.date for r in db.query(Budget.date).filter(Budget.is_locked == True).all()}
+        m = d.replace(day=1)
+        if m not in locked:
+            return d
+        while m in locked:
+            m += relativedelta(months=1)
+        return m
+
+    @staticmethod
+    def lock_budget(budget_id: int, db: Session) -> dict:
+        budget = db.query(Budget).filter(Budget.id == budget_id).first()
+        if not budget:
+            raise HTTPException(status_code=404, detail="Budget not found")
+        if budget.date >= date.today().replace(day=1):
+            raise HTTPException(status_code=400, detail="A month can only be locked after it's over")
+        budget.is_locked = True
+        db.commit()
+        return {"id": budget.id, "is_locked": True}
+
+    @staticmethod
+    def unlock_budget(budget_id: int, db: Session) -> dict:
+        budget = db.query(Budget).filter(Budget.id == budget_id).first()
+        if not budget:
+            raise HTTPException(status_code=404, detail="Budget not found")
+        budget.is_locked = False
+        db.commit()
+        return {"id": budget.id, "is_locked": False}
+
+
     @staticmethod
     def save_budget(data, db: Session):
 
@@ -102,7 +149,7 @@ class BudgetController:
     def compute_actual(budget_item_id: int, year: int, month: int, db: Session) -> Decimal:
         result = db.query(func.sum(Transaction.amount)).filter(
             Transaction.budget_item_id == budget_item_id,
-            Transaction.is_deleted == False,
+            Transaction.counts_toward_budget(),
             extract('year', Transaction.date) == year,
             extract('month', Transaction.date) == month
         ).scalar()
@@ -114,7 +161,7 @@ class BudgetController:
         result = db.query(func.sum(Transaction.amount)).filter(
             Transaction.fund_item_id == fund_item_id,
             Transaction.amount < 0,
-            Transaction.is_deleted == False,
+            Transaction.counts_toward_budget(),
             extract('year', Transaction.date) == year,
             extract('month', Transaction.date) == month
         ).scalar()
@@ -212,7 +259,7 @@ class BudgetController:
         income = db.query(func.sum(Transaction.amount)).filter(
             Transaction.amount > 0,
             Transaction.is_income == True,
-            Transaction.is_deleted == False,
+            Transaction.counts_toward_budget(),
             extract('year', Transaction.date) == year,
             extract('month', Transaction.date) == month
         ).scalar() or Decimal('0')
@@ -223,6 +270,7 @@ class BudgetController:
         return {
             "id": budget.id,
             "date": budget.date.strftime("%Y-%m"),
+            "is_locked": budget.is_locked,
             "tables": tables,
             "overview": overview,
             "income": income,
@@ -251,6 +299,7 @@ class BudgetController:
             target_date = date(year, month, 1)
 
             existing = db.query(Budget).filter(Budget.date == target_date).first()
+            BudgetController.assert_budget_unlocked(existing)
             if existing:
                 db.delete(existing)
                 db.flush()
@@ -313,6 +362,7 @@ class BudgetController:
 
     @staticmethod
     def add_table(budget_id: int, name: str, is_fund: bool, db: Session) -> dict:
+        BudgetController.assert_budget_unlocked(db.get(Budget, budget_id))
         try:
             table = BudgetTable(name=name, budget_id=budget_id, isFund=is_fund)
             db.add(table)
@@ -326,6 +376,8 @@ class BudgetController:
 
     @staticmethod
     def add_budget_item(budget_table_id: int, name: str, expected: Decimal, db: Session) -> dict:
+        table = db.get(BudgetTable, budget_table_id)
+        BudgetController.assert_budget_unlocked(table.budget if table else None)
         try:
             item = BudgetItem(name=name, expected=expected, actual=0, budget_table_id=budget_table_id)
             db.add(item)
@@ -339,6 +391,8 @@ class BudgetController:
 
     @staticmethod
     def add_fund_item(budget_table_id: int, name: str, starting_value: Decimal, plus: Decimal, db: Session, minimum: Decimal | None = None, maximum: Decimal | None = None) -> dict:
+        table = db.get(BudgetTable, budget_table_id)
+        BudgetController.assert_budget_unlocked(table.budget if table else None)
         try:
             item = FundItem(
                 name=name,
@@ -370,6 +424,8 @@ class BudgetController:
 
     @staticmethod
     def update_budget_item(item_id: int, name: str, expected: Decimal, db: Session) -> dict:
+        item = db.get(BudgetItem, item_id)
+        BudgetController.assert_budget_unlocked(item.budget_table.budget if item else None)
         try:
             item = db.query(BudgetItem).filter(BudgetItem.id == item_id).first()
             if not item:
@@ -385,6 +441,8 @@ class BudgetController:
 
     @staticmethod
     def update_fund_item(item_id: int, name: str, plus: Decimal, starting_value: Decimal, db: Session, minimum: Decimal | None = None, maximum: Decimal | None = None) -> dict:
+        item = db.get(FundItem, item_id)
+        BudgetController.assert_budget_unlocked(item.budget_table.budget if item else None)
         try:
             item = db.query(FundItem).filter(FundItem.id == item_id).first()
             if not item:
@@ -416,6 +474,8 @@ class BudgetController:
 
     @staticmethod
     def update_table(table_id: int, name: str, db: Session) -> dict:
+        table = db.get(BudgetTable, table_id)
+        BudgetController.assert_budget_unlocked(table.budget if table else None)
         try:
             table = db.query(BudgetTable).filter(BudgetTable.id == table_id).first()
             if not table:
@@ -430,6 +490,8 @@ class BudgetController:
 
     @staticmethod
     def delete_table(table_id: int, db: Session) -> dict:
+        table = db.get(BudgetTable, table_id)
+        BudgetController.assert_budget_unlocked(table.budget if table else None)
         try:
             table = db.query(BudgetTable).filter(BudgetTable.id == table_id).first()
             if not table:
@@ -444,6 +506,8 @@ class BudgetController:
 
     @staticmethod
     def delete_budget_item(item_id: int, db: Session) -> dict:
+        item = db.get(BudgetItem, item_id)
+        BudgetController.assert_budget_unlocked(item.budget_table.budget if item else None)
         try:
             item = db.query(BudgetItem).filter(BudgetItem.id == item_id).first()
             if not item:
@@ -459,6 +523,8 @@ class BudgetController:
 
     @staticmethod
     def delete_fund_item(item_id: int, db: Session) -> dict:
+        item = db.get(FundItem, item_id)
+        BudgetController.assert_budget_unlocked(item.budget_table.budget if item else None)
         try:
             item = db.query(FundItem).filter(FundItem.id == item_id).first()
             if not item:

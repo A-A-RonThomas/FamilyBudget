@@ -66,3 +66,11 @@ def delete_budget_item(item_id: int, db: Session = Depends(get_db)):
 @router.delete("/budget/fund-item/{item_id}")
 def delete_fund_item(item_id: int, db: Session = Depends(get_db)):
     return BudgetController.delete_fund_item(item_id, db)
+
+@router.post("/budget/{budget_id}/lock")
+def lock_budget(budget_id: int, db: Session = Depends(get_db)):
+    return BudgetController.lock_budget(budget_id, db)
+
+@router.post("/budget/{budget_id}/unlock")
+def unlock_budget(budget_id: int, db: Session = Depends(get_db)):
+    return BudgetController.unlock_budget(budget_id, db)

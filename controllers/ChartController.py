@@ -22,7 +22,7 @@ class ChartController:
         ).filter(
             Transaction.amount > 0,
             Transaction.is_income == True,
-            Transaction.is_deleted == False,
+            Transaction.counts_toward_budget(),
             Transaction.date >= start_date
         ).group_by(
             extract('year', Transaction.date),
@@ -35,7 +35,7 @@ class ChartController:
             func.sum(Transaction.amount).label('total')
         ).filter(
             Transaction.amount < 0,
-            Transaction.is_deleted == False,
+            Transaction.counts_toward_budget(),
             Transaction.date >= start_date
         ).group_by(
             extract('year', Transaction.date),
@@ -78,7 +78,7 @@ class ChartController:
             func.sum(func.abs(Transaction.amount)).label('total')
         ).join(
             Transaction, Transaction.budget_item_id == BudgetItem.id
-        ).filter(Transaction.amount < 0, Transaction.is_deleted == False)
+        ).filter(Transaction.amount < 0, Transaction.counts_toward_budget())
 
         q = q.filter(extract('year', Transaction.date) == year)
         if month:
@@ -107,7 +107,7 @@ class ChartController:
                 actual = db.query(func.sum(Transaction.amount)).filter(
                     Transaction.budget_item_id == bi.id,
                     Transaction.amount < 0,
-                    Transaction.is_deleted == False,
+                    Transaction.counts_toward_budget(),
                     extract('year', Transaction.date) == year,
                     extract('month', Transaction.date) == month
                 ).scalar()
@@ -156,7 +156,7 @@ class ChartController:
                     minus = db.query(func.sum(Transaction.amount)).filter(
                         Transaction.fund_item_id == fi.id,
                         Transaction.amount < 0,
-                        Transaction.is_deleted == False,
+                        Transaction.counts_toward_budget(),
                         extract('year', Transaction.date) == year,
                         extract('month', Transaction.date) == month
                     ).scalar() or 0

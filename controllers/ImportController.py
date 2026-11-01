@@ -119,9 +119,15 @@ class ImportController:
             imported = 0
             skipped = 0
 
+            from controllers.BudgetController import BudgetController
+
             for t in transactions:
+                # Late transactions for a locked month are recorded in the earliest open month;
+                # dedupe against both dates so re-importing the same file doesn't duplicate them
+                original_date = t["date"]
+                t["date"] = BudgetController.open_date_for(original_date, db)
                 existing = db.query(Transaction).filter(
-                    Transaction.date == t["date"],
+                    Transaction.date.in_({original_date, t["date"]}),
                     Transaction.amount == t["amount"],
                     Transaction.description == t["description"],
                     Transaction.account_id == account.id
@@ -138,6 +144,7 @@ class ImportController:
                 db.add(Transaction(
                     date=t["date"],
                     description=normalized,
+                    memo=f"Originally dated {original_date.isoformat()}" if t["date"] != original_date else None,
                     amount=t["amount"],
                     vendor_id=vendor_id,
                     account_id=account.id,

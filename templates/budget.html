@@ -111,6 +111,11 @@
         outline: 2px solid var(--primary);
         outline-offset: -2px;
     }
+    .budget-page.locked .budget-table tbody tr { cursor: default; }
+    .budget-page.locked .budget-item-row:hover, .budget-page.locked .fund-item-row:hover {
+        background-color: inherit !important;
+        outline: none;
+    }
 
     @media (max-width: 576px) {
         .budget-table td, .budget-table th {
@@ -129,10 +134,11 @@
      data-year="{{ year }}"
      data-month="{{ month }}"
      data-budget-id="{{ budget.id if budget else '' }}"
+     data-locked="{{ 'true' if budget and budget.is_locked else 'false' }}"
      style="display:none;">
 </div>
 
-<div class="budget-page">
+<div class="budget-page {% if budget and budget.is_locked %}locked{% endif %}">
 
     <!-- ── Month nav ─────────────────────────────────────────── -->
     <div class="month-nav">
@@ -215,9 +221,17 @@
     </div>
 
     <!-- ── Actions ────────────────────────────────────────────── -->
-    <div class="d-flex justify-content-end gap-2">
+    <div class="d-flex justify-content-end align-items-center gap-2">
+        {% if budget.is_locked %}
+        <span class="badge bg-secondary">&#128274; Locked</span>
+        <button class="btn btn-sm btn-secondary" onclick="unlockBudget()">Unlock</button>
+        {% else %}
+        {% if month_over %}
+        <button class="btn btn-sm btn-success" onclick="lockBudget()">Finalize &amp; Lock</button>
+        {% endif %}
         <button class="btn btn-sm btn-primary" onclick="openAddTableModal()">+ Add Table</button>
         <button class="btn btn-sm btn-danger" onclick="clearBudget()">Clear & Start Fresh</button>
+        {% endif %}
     </div>
 
     <!-- ── Category / fund tables ─────────────────────────────── -->
@@ -229,7 +243,9 @@
                 id="table-name-{{ table.id }}"
                 value="{{ table.name }}"
                 data-table-id="{{ table.id }}"
+                {% if budget.is_locked %}readonly{% endif %}
                 onchange="updateTableName(this)">
+            {% if not budget.is_locked %}
             <div class="d-flex gap-2">
                 <button class="btn btn-sm btn-primary"
                         data-table-id="{{ table.id }}"
@@ -244,6 +260,7 @@
                     Delete Table
                 </button>
             </div>
+            {% endif %}
         </div>
         <div class="card-body p-0">
             {% if table.is_fund %}
@@ -521,6 +538,7 @@
     const year = parseInt(pageData.dataset.year);
     const month = parseInt(pageData.dataset.month);
     const budgetId = pageData.dataset.budgetId ? parseInt(pageData.dataset.budgetId) : null;
+    const budgetLocked = pageData.dataset.locked === 'true';
     let currentTableId = null;
     let currentTableIsFund = false;
     let currentEditItemId = null;
@@ -535,8 +553,10 @@
     });
 
     // ── Row click listeners ──────────────────────────────────
+    // Locked months are read-only, so their rows don't open the edit dialogs
     document.querySelectorAll('.budget-item-row').forEach(row => {
         row.addEventListener('click', function () {
+            if (budgetLocked) return;
             openEditItemModal(
                 parseInt(this.dataset.itemId),
                 this.dataset.itemName,
@@ -547,6 +567,7 @@
 
     document.querySelectorAll('.fund-item-row').forEach(row => {
         row.addEventListener('click', function () {
+            if (budgetLocked) return;
             openEditFundItemModal(
                 parseInt(this.dataset.itemId),
                 this.dataset.itemName,
@@ -582,6 +603,28 @@
 
     function startFresh() {
         initBudget(null, null);
+    }
+
+    // ── Lock / unlock ────────────────────────────────────────
+    async function lockBudget() {
+        if (!confirm('Finalize and lock this month? Its budget and transactions will become read-only. Transactions that post late will go into the next open month.')) return;
+        await setLocked('lock');
+    }
+
+    async function unlockBudget() {
+        if (!confirm('Unlock this month? Its budget and transactions will be editable again, and changes may affect the following months.')) return;
+        await setLocked('unlock');
+    }
+
+    async function setLocked(action) {
+        try {
+            const res = await fetch(`/api/budget/${budgetId}/${action}`, { method: 'POST' });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || `Failed to ${action} budget`);
+            location.reload();
+        } catch (err) {
+            showAlert(err.message, 'danger');
+        }
     }
 
     async function clearBudget() {

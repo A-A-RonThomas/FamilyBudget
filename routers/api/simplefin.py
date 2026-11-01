@@ -10,6 +10,7 @@ from core.database import get_db
 from models.database.transaction import Transaction
 from models.database.account import Account
 from controllers.ImportController import ImportController
+from controllers.BudgetController import BudgetController
 
 load_dotenv()
 
@@ -136,6 +137,8 @@ def run_simplefin_sync(db: Session, days: int = 90, account_ids: list | None = N
                     total_skipped += 1
                     continue
                 txn_date = datetime.fromtimestamp(posted).date()
+                original_date = txn_date
+                txn_date = BudgetController.open_date_for(txn_date, db)
 
                 description = (
                     txn.get("payee") or
@@ -144,6 +147,10 @@ def run_simplefin_sync(db: Session, days: int = 90, account_ids: list | None = N
                 ).lower().strip()
 
                 memo = txn.get("memo", None)
+                if txn_date != original_date:
+                    # Its month is locked, so it's budgeted in the earliest open month instead
+                    note = f"Originally dated {original_date.isoformat()}"
+                    memo = f"{note} | {memo}" if memo else note
 
                 normalized, vendor_id = ImportController.auto_categorize(description, db)
                 rules = ImportController.apply_vendor_rules(vendor_id, txn_date, db)

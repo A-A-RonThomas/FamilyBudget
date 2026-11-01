@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from core.database import get_db
 from controllers import TransactionController
-from schemas.transactions_schema import TransactionUpdateRequest, TransactionUpdateResponse, TransactionResponse
+from schemas.transactions_schema import TransactionUpdateRequest, TransactionUpdateResponse, TransactionResponse, SplitRequest
 
 router = APIRouter()
 
@@ -44,3 +44,11 @@ def delete_transaction(trans_id: int, db: Session = Depends(get_db)):
 @router.post("/transactions/{trans_id}/restore")
 def restore_transaction(trans_id: int, db: Session = Depends(get_db)):
     return TransactionController.restore_transaction(trans_id, db)
+
+@router.post("/transactions/{trans_id}/split")
+def split_transaction(trans_id: int, body: SplitRequest, db: Session = Depends(get_db)):
+    return TransactionController.split_transaction(trans_id, [p.model_dump() for p in body.pieces], db)
+
+@router.delete("/transactions/{trans_id}/split")
+def unsplit_transaction(trans_id: int, db: Session = Depends(get_db)):
+    return TransactionController.unsplit_transaction(trans_id, db)

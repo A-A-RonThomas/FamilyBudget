@@ -61,5 +61,6 @@ def budget_page(
             "existing_months": existing_months,
             "default_copy_source": default_copy_source,
             "latest_month": latest_month,
+            "month_over": target_date < date.today().replace(day=1),
         }
     )

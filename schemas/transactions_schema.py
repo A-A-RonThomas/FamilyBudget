@@ -1,5 +1,5 @@
 from decimal import Decimal
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from datetime import date
 from typing import Optional
 
@@ -16,6 +16,16 @@ class TransactionUpdateRequest(TransactionBase):
     is_income: Optional[bool] = None
     always_ignore: bool = False
     always_categorize: bool = False
+
+
+class SplitPiece(TransactionBase):
+    amount: Decimal = Field(gt=0, decimal_places=2)  # positive; sign comes from the original
+    budget_item_id: Optional[int] = None
+    fund_item_id: Optional[int] = None
+
+
+class SplitRequest(TransactionBase):
+    pieces: list[SplitPiece]
 
 
 class TransactionUpdateResponse(TransactionBase):
