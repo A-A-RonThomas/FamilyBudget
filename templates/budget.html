@@ -347,10 +347,15 @@
                 {% endif %}
             </div>
             <div class="modal-footer justify-content-between">
-                <button type="button" class="btn btn-secondary" onclick="startFresh()">Start Fresh</button>
-                {% if existing_months %}
-                <button type="button" class="btn btn-primary" onclick="copyFromSelected()">Copy</button>
+                {% if latest_month %}
+                <a href="?year={{ latest_month.year }}&month={{ latest_month.month }}" class="btn btn-secondary">Back to {{ latest_month.label }}</a>
                 {% endif %}
+                <div class="d-flex gap-2 ms-auto">
+                    <button type="button" class="btn btn-secondary" onclick="startFresh()">Start Fresh</button>
+                    {% if existing_months %}
+                    <button type="button" class="btn btn-primary" onclick="copyFromSelected()">Copy</button>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>

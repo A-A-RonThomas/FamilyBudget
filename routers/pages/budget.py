@@ -20,6 +20,13 @@ def budget_page(
     db: Session = Depends(get_db)
 ):
     now = datetime.now()
+    existing_months = BudgetController.get_existing_months(db)
+    latest_month = existing_months[0] if existing_months else None
+
+    # With no month requested, open the most recent month that has a budget
+    # rather than the calendar month, so a new month is only started on purpose.
+    if year is None and month is None and latest_month:
+        year, month = latest_month["year"], latest_month["month"]
     year = year or now.year
     month = month or now.month
 
@@ -29,10 +36,8 @@ def budget_page(
     prev_date = target_date - relativedelta(months=1)
     next_date = target_date + relativedelta(months=1)
 
-    existing_months = []
     default_copy_source = None
     if not budget:
-        existing_months = BudgetController.get_existing_months(db)
         prior_months = [m for m in existing_months if date(m["year"], m["month"], 1) < target_date]
         if prior_months:
             default_copy_source = prior_months[0]
@@ -55,5 +60,6 @@ def budget_page(
             "next_month": next_date.month,
             "existing_months": existing_months,
             "default_copy_source": default_copy_source,
+            "latest_month": latest_month,
         }
     )
