@@ -73,6 +73,22 @@
     .split-piece-row .split-amount {
         width: 120px;
     }
+    th.sortable {
+        cursor: pointer;
+        user-select: none;
+        white-space: nowrap;
+    }
+    th.sortable:hover {
+        color: var(--primary);
+    }
+    th.sortable .sort-indicator {
+        display: inline-block;
+        width: 1em;
+        opacity: 0.35;
+    }
+    th.sortable.sorted .sort-indicator {
+        opacity: 1;
+    }
     @media (max-width: 576px) {
         .col-hide-mobile {
             display: none;
@@ -139,12 +155,12 @@
     <table class="table table-striped w-auto">
         <thead>
             <tr>
-                <th>Date</th>
-                <th>Store</th>
-                <th class="text-end">Amount</th>
-                <th class="col-hide-mobile">Account</th>
-                <th>Budget Category</th>
-                {% if type == "incomes" %}<th>Income</th>{% endif %}
+                <th class="sortable" data-sort="date">Date <span class="sort-indicator"></span></th>
+                <th class="sortable" data-sort="store">Store <span class="sort-indicator"></span></th>
+                <th class="sortable text-end" data-sort="amount">Amount <span class="sort-indicator"></span></th>
+                <th class="sortable col-hide-mobile" data-sort="account">Account <span class="sort-indicator"></span></th>
+                <th class="sortable" data-sort="category">Budget Category <span class="sort-indicator"></span></th>
+                {% if type == "incomes" %}<th class="sortable" data-sort="income">Income <span class="sort-indicator"></span></th>{% endif %}
             </tr>
         </thead>
         <tbody>
@@ -152,6 +168,9 @@
             <!-- Main row -->
             <tr class="transaction-row {% if not row.vendor_id and not row.is_deleted and not row.is_split %}unreviewed{% endif %} {% if type == 'incomes' and not row.is_income %}not-income{% endif %} {% if row.is_deleted %}ignored-transaction{% endif %}"
                 id="row-{{ row.id }}"
+                data-date="{{ row.date }}"
+                data-account="{{ row.account }}"
+                data-category-name="{{ 'split' if row.is_split else (row.budget_category or '') }}"
                 data-description="{{ row.description }}"
                 data-is-income="{{ 'true' if row.is_income else 'false' }}"
                 data-amount="{{ '%.2f'|format(row.amount|abs) }}"
@@ -361,6 +380,85 @@
 <script>
     const currentType = "{{ type }}";
     let openRowId = null;
+
+    // ── Column sorting ───────────────────────────────────────────
+    // Each transaction is a main row plus its edit row and any split rows;
+    // they're moved together. Date and amount sort descending on first click,
+    // text columns ascending. Default is date, newest first.
+    const SORT_DEFAULT_DIR = { date: 'desc', amount: 'desc', income: 'desc', store: 'asc', account: 'asc', category: 'asc' };
+    const SORT_STORAGE_KEY = `txnSort-${currentType}`;
+
+    function sortValue(row, key) {
+        switch (key) {
+            case 'date':     return row.dataset.date;
+            case 'amount':   return parseFloat(row.dataset.amount) || 0;
+            case 'income':   return row.dataset.isIncome === 'true' ? 1 : 0;
+            case 'store':    return (row.dataset.description || '').toLowerCase();
+            case 'account':  return (row.dataset.account || '').toLowerCase();
+            case 'category': return (row.dataset.categoryName || '').toLowerCase();
+        }
+    }
+
+    function compareValues(a, b) {
+        if (typeof a === 'number') return a - b;
+        // Blank text (e.g. uncategorized) always sorts last
+        if (!a && b) return 1;
+        if (a && !b) return -1;
+        return a.localeCompare(b);
+    }
+
+    function sortTable(key, dir) {
+        const tbody = document.querySelector('table tbody');
+        const groups = [];
+        let current = null;
+        for (const tr of Array.from(tbody.children)) {
+            if (tr.classList.contains('transaction-row')) {
+                current = { main: tr, rows: [tr] };
+                groups.push(current);
+            } else if (current) {
+                current.rows.push(tr);
+            }
+        }
+
+        const sign = dir === 'asc' ? 1 : -1;
+        groups.sort((g1, g2) => {
+            const a = sortValue(g1.main, key), b = sortValue(g2.main, key);
+            let cmp = compareValues(a, b);
+            // Blanks stay last regardless of direction
+            if (typeof a !== 'number' && (!a || !b) && a !== b) return cmp;
+            cmp *= sign;
+            // Tie-break: newest first
+            if (cmp === 0 && key !== 'date') cmp = g2.main.dataset.date.localeCompare(g1.main.dataset.date);
+            return cmp;
+        });
+        groups.forEach(g => g.rows.forEach(r => tbody.appendChild(r)));
+
+        document.querySelectorAll('th.sortable').forEach(th => {
+            const active = th.dataset.sort === key;
+            th.classList.toggle('sorted', active);
+            th.querySelector('.sort-indicator').textContent = active ? (dir === 'asc' ? '▲' : '▼') : '';
+        });
+
+        try { sessionStorage.setItem(SORT_STORAGE_KEY, JSON.stringify({ key, dir })); } catch (e) {}
+    }
+
+    let currentSort = { key: 'date', dir: 'desc' };
+    try {
+        const saved = JSON.parse(sessionStorage.getItem(SORT_STORAGE_KEY));
+        if (saved && SORT_DEFAULT_DIR[saved.key] && document.querySelector(`th[data-sort="${saved.key}"]`)) currentSort = saved;
+    } catch (e) {}
+
+    document.querySelectorAll('th.sortable').forEach(th => {
+        th.addEventListener('click', () => {
+            const key = th.dataset.sort;
+            const dir = currentSort.key === key
+                ? (currentSort.dir === 'asc' ? 'desc' : 'asc')
+                : SORT_DEFAULT_DIR[key];
+            currentSort = { key, dir };
+            sortTable(key, dir);
+        });
+    });
+    sortTable(currentSort.key, currentSort.dir);
 
     function toggleExpand(rowId) {
         const expandRow = document.getElementById(`expand-${rowId}`);

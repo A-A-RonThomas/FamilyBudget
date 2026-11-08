@@ -26,10 +26,16 @@ class TransactionController:
         return {(r.date.year, r.date.month) for r in db.query(Budget.date).filter(Budget.is_locked == True).all()}
 
     @staticmethod
+    def _exclude_hidden_accounts(query):
+        # Hidden accounts are still synced from SimpleFIN; they're just kept off the page
+        return query.join(Account, Transaction.account_id == Account.id).filter(Account.is_hidden == False)
+
+    @staticmethod
     def get_all_purchases(db: Session, year=None, month=None):
         try:
             # Split pieces are listed under their original rather than as their own rows
             query = db.query(Transaction).filter(Transaction.amount < 0, Transaction.parent_id == None)
+            query = TransactionController._exclude_hidden_accounts(query)
 
             if year:
                 query = query.filter(extract('year', Transaction.date) == year)
@@ -81,6 +87,7 @@ class TransactionController:
     def get_all_incomes(db: Session, year=None, month=None):
         try:
             query = db.query(Transaction).filter(Transaction.amount >= 0)
+            query = TransactionController._exclude_hidden_accounts(query)
 
             if year:
                 query = query.filter(extract('year', Transaction.date) == year)
