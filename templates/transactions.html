@@ -79,6 +79,61 @@
     }
     .transactions-table-wrap .table {
         margin-bottom: 0;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    .store-col {
+        width: 300px;
+    }
+    /* Mobile/tablet: one list at a time, picked with the toggle */
+    .txn-pane {
+        display: none;
+    }
+    .txn-pane.active {
+        display: block;
+    }
+    .txn-pane-title {
+        display: none;
+        text-align: center;
+    }
+    /* Both lists, all screen sizes: still scrollable, just no visible bar */
+    .txn-scroll {
+        scrollbar-width: none;
+    }
+    .txn-scroll::-webkit-scrollbar {
+        display: none;
+    }
+    /* Desktop: both lists side by side, each scrolling on its own */
+    @media (min-width: 1200px) {
+        .txn-panes {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            align-items: start;
+        }
+        .txn-pane,
+        .txn-pane.active {
+            display: block;
+            min-width: 0;
+        }
+        .txn-pane-title {
+            display: block;
+        }
+        .txn-scroll {
+            max-height: calc(100vh - 220px);
+            overflow-y: auto;
+            padding-bottom: 3rem;
+        }
+        .txn-scroll thead th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            background-color: var(--surface);
+        }
+        .store-col {
+            width: auto;
+            min-width: 160px;
+        }
     }
     th.sortable {
         cursor: pointer;
@@ -118,16 +173,16 @@
 </style>
 
 <form method="get" id="month-filter" class="mb-3 d-flex gap-2 align-items-center justify-content-center flex-wrap text-on-bg">
-    <input type="hidden" name="type" value="{{ type }}">
-    <div class="btn-group" role="group">
-        <a href="?type=purchases&year={{ year or default_year }}&month={{ month }}"
-           class="btn btn-sm {% if type == 'purchases' %}btn-primary{% else %}btn-surface{% endif %}">
+    <input type="hidden" name="type" id="type-input" value="{{ type }}">
+    <div class="btn-group d-xl-none" role="group" id="txn-toggle">
+        <button type="button" data-kind="purchases"
+           class="btn btn-sm {% if type != 'incomes' %}btn-primary{% else %}btn-surface{% endif %}">
             Purchases
-        </a>
-        <a href="?type=incomes&year={{ year or default_year }}&month={{ month }}"
+        </button>
+        <button type="button" data-kind="incomes"
            class="btn btn-sm {% if type == 'incomes' %}btn-primary{% else %}btn-surface{% endif %}">
             Income
-        </a>
+        </button>
     </div>
 
     <label for="year">Year:</label>
@@ -152,15 +207,11 @@
         <option value="12" {% if month == 12 %}selected{% endif %}>December</option>
     </select>
 
-    <a href="{{ request.url.path }}?type={{ type }}&view_all=true" class="btn btn-secondary">View All</a>
+    <a href="{{ request.url.path }}?type={{ type }}&view_all=true" class="btn btn-secondary" id="view-all-link">View All</a>
 </form>
 
-{% if month and rows and rows[0].is_locked %}
-<p class="text-center text-on-bg">&#128274; {{ month_name }} {{ year }} is locked, so its transactions are read-only.</p>
-{% endif %}
-
-<div class="table-responsive d-flex justify-content-center transactions-table-wrap">
-    <table class="table table-striped w-auto">
+{% macro txn_table(rows, kind) %}
+    <table class="table table-striped w-auto txn-table" data-kind="{{ kind }}">
         <thead>
             <tr>
                 <th class="sortable" data-sort="date">Date <span class="sort-indicator"></span></th>
@@ -168,13 +219,13 @@
                 <th class="sortable text-end" data-sort="amount">Amount <span class="sort-indicator"></span></th>
                 <th class="sortable col-hide-mobile" data-sort="account">Account <span class="sort-indicator"></span></th>
                 <th class="sortable" data-sort="category">Budget Category <span class="sort-indicator"></span></th>
-                {% if type == "incomes" %}<th class="sortable" data-sort="income">Income <span class="sort-indicator"></span></th>{% endif %}
+                {% if kind == "incomes" %}<th class="sortable" data-sort="income">Income <span class="sort-indicator"></span></th>{% endif %}
             </tr>
         </thead>
         <tbody>
             {% for row in rows %}
             <!-- Main row -->
-            <tr class="transaction-row {% if not row.vendor_id and not row.is_deleted and not row.is_split %}unreviewed{% endif %} {% if type == 'incomes' and not row.is_income %}not-income{% endif %} {% if row.is_deleted %}ignored-transaction{% endif %}"
+            <tr class="transaction-row {% if not row.vendor_id and not row.is_deleted and not row.is_split %}unreviewed{% endif %} {% if kind == 'incomes' and not row.is_income %}not-income{% endif %} {% if row.is_deleted %}ignored-transaction{% endif %}"
                 id="row-{{ row.id }}"
                 data-date="{{ row.date }}"
                 data-account="{{ row.account }}"
@@ -186,21 +237,21 @@
                 data-splits='{{ (row.splits or []) | tojson }}'
                 onclick="{% if row.is_locked %}showAlert('This month is locked. Unlock it on the budget page to make changes.', 'warning'){% else %}toggleExpand('{{ row.id }}'){% endif %}">
                 <td class="date-column">{{ row.date }}</td>
-                <td style="width: 300px;">{{ row.description | title }}</td>
+                <td class="store-col">{{ row.description | title }}</td>
                 <td style="width: 100px;" class="text-end">${{ '%.2f'|format(row.amount) }}</td>
                 <td class="col-hide-mobile" style="width: 100px;">{{ row.account }}</td>
                 <td id="category-{{ row.id }}">
                     {% if row.is_split %}<span class="badge bg-secondary">Split</span>
                     {% else %}{{ row.budget_category | title if row.budget_category else '—' }}{% endif %}
                 </td>
-                {% if type == "incomes" %}
+                {% if kind == "incomes" %}
                 <td id="is-income-{{ row.id }}">{{ '✓' if row.is_income else '✗' }}</td>
                 {% endif %}
             </tr>
 
             <!-- Expandable edit row -->
             <tr class="expand-row" id="expand-{{ row.id }}">
-                <td colspan="{{ 6 if type == 'incomes' else 5 }}">
+                <td colspan="{{ 6 if kind == 'incomes' else 5 }}">
                     <div class="expand-inner">
                         {% if row.is_split %}
                         <div class="field wide">
@@ -295,7 +346,7 @@
                                 </label>
                             </div>
                         </div>
-                        {% if type == "incomes" %}
+                        {% if kind == "incomes" %}
                         <div class="field">
                             <label class="form-label fw-semibold mb-1">Count as Income</label>
                             <div class="form-check form-switch mt-1">
@@ -310,7 +361,7 @@
                                     onclick="saveTransaction(event, '{{ row.id }}')">Save</button>
                             <button class="btn btn-secondary btn-sm"
                                     onclick="closeExpand(event, '{{ row.id }}')">Cancel</button>
-                            {% if type != 'incomes' and not row.is_deleted %}
+                            {% if kind != 'incomes' and not row.is_deleted %}
                             <button class="btn btn-secondary btn-sm"
                                     onclick="openSplit(event, '{{ row.id }}')">Split</button>
                             {% endif %}
@@ -340,6 +391,27 @@
             {% endfor %}
         </tbody>
     </table>
+{% endmacro %}
+
+{# Locked notice: both lists share one month, so check whichever has rows #}
+{% set first_row = (purchases or incomes or [None])[0] %}
+{% if month and first_row and first_row.is_locked %}
+<p class="text-center text-on-bg">&#128274; {{ month_name }} {{ year }} is locked, so its transactions are read-only.</p>
+{% endif %}
+
+<div class="txn-panes" id="txn-panes">
+    <section class="txn-pane {% if type != 'incomes' %}active{% endif %}" data-kind="purchases">
+        <h5 class="txn-pane-title text-on-bg">Purchases <span class="small opacity-75">({{ purchases | length }})</span></h5>
+        <div class="txn-scroll table-responsive transactions-table-wrap">
+            {{ txn_table(purchases, 'purchases') }}
+        </div>
+    </section>
+    <section class="txn-pane {% if type == 'incomes' %}active{% endif %}" data-kind="incomes">
+        <h5 class="txn-pane-title text-on-bg">Income <span class="small opacity-75">({{ incomes | length }})</span></h5>
+        <div class="txn-scroll table-responsive transactions-table-wrap">
+            {{ txn_table(incomes, 'incomes') }}
+        </div>
+    </section>
 </div>
 
 <!-- ── Split Transaction Modal ───────────────────────────────── -->
@@ -386,15 +458,32 @@
 <div id="alert-container" class="position-fixed bottom-0 end-0 p-3" style="z-index: 9999"></div>
 
 <script>
-    const currentType = "{{ type }}";
     let openRowId = null;
 
+    // ── Purchases / Income toggle (mobile only; desktop shows both) ──
+    document.querySelectorAll('#txn-toggle button').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const kind = btn.dataset.kind;
+            document.querySelectorAll('#txn-toggle button').forEach(b => {
+                b.classList.toggle('btn-primary', b === btn);
+                b.classList.toggle('btn-surface', b !== btn);
+            });
+            document.querySelectorAll('.txn-pane').forEach(p => p.classList.toggle('active', p.dataset.kind === kind));
+            // Keep month changes, View All and reloads on the same list
+            document.getElementById('type-input').value = kind;
+            const viewAll = document.getElementById('view-all-link');
+            viewAll.href = viewAll.href.replace(/type=[^&]*/, `type=${kind}`);
+            const url = new URL(location.href);
+            url.searchParams.set('type', kind);
+            history.replaceState(null, '', url);
+        });
+    });
+
     // ── Column sorting ───────────────────────────────────────────
-    // Each transaction is a main row plus its edit row and any split rows;
-    // they're moved together. Date and amount sort descending on first click,
-    // text columns ascending. Default is date, newest first.
+    // Each table sorts on its own. A transaction is a main row plus its edit
+    // row and any split rows; they're moved together. Date and amount sort
+    // descending on first click, text columns ascending. Default is date, newest first.
     const SORT_DEFAULT_DIR = { date: 'desc', amount: 'desc', income: 'desc', store: 'asc', account: 'asc', category: 'asc' };
-    const SORT_STORAGE_KEY = `txnSort-${currentType}`;
 
     function sortValue(row, key) {
         switch (key) {
@@ -415,8 +504,8 @@
         return a.localeCompare(b);
     }
 
-    function sortTable(key, dir) {
-        const tbody = document.querySelector('table tbody');
+    function sortTable(table, key, dir) {
+        const tbody = table.tBodies[0];
         const groups = [];
         let current = null;
         for (const tr of Array.from(tbody.children)) {
@@ -441,32 +530,34 @@
         });
         groups.forEach(g => g.rows.forEach(r => tbody.appendChild(r)));
 
-        document.querySelectorAll('th.sortable').forEach(th => {
+        table.querySelectorAll('th.sortable').forEach(th => {
             const active = th.dataset.sort === key;
             th.classList.toggle('sorted', active);
             th.querySelector('.sort-indicator').textContent = active ? (dir === 'asc' ? '▲' : '▼') : '';
         });
 
-        try { sessionStorage.setItem(SORT_STORAGE_KEY, JSON.stringify({ key, dir })); } catch (e) {}
+        try { sessionStorage.setItem(`txnSort-${table.dataset.kind}`, JSON.stringify({ key, dir })); } catch (e) {}
     }
 
-    let currentSort = { key: 'date', dir: 'desc' };
-    try {
-        const saved = JSON.parse(sessionStorage.getItem(SORT_STORAGE_KEY));
-        if (saved && SORT_DEFAULT_DIR[saved.key] && document.querySelector(`th[data-sort="${saved.key}"]`)) currentSort = saved;
-    } catch (e) {}
+    document.querySelectorAll('table.txn-table').forEach(table => {
+        let currentSort = { key: 'date', dir: 'desc' };
+        try {
+            const saved = JSON.parse(sessionStorage.getItem(`txnSort-${table.dataset.kind}`));
+            if (saved && SORT_DEFAULT_DIR[saved.key] && table.querySelector(`th[data-sort="${saved.key}"]`)) currentSort = saved;
+        } catch (e) {}
 
-    document.querySelectorAll('th.sortable').forEach(th => {
-        th.addEventListener('click', () => {
-            const key = th.dataset.sort;
-            const dir = currentSort.key === key
-                ? (currentSort.dir === 'asc' ? 'desc' : 'asc')
-                : SORT_DEFAULT_DIR[key];
-            currentSort = { key, dir };
-            sortTable(key, dir);
+        table.querySelectorAll('th.sortable').forEach(th => {
+            th.addEventListener('click', () => {
+                const key = th.dataset.sort;
+                const dir = currentSort.key === key
+                    ? (currentSort.dir === 'asc' ? 'desc' : 'asc')
+                    : SORT_DEFAULT_DIR[key];
+                currentSort = { key, dir };
+                sortTable(table, key, dir);
+            });
         });
+        sortTable(table, currentSort.key, currentSort.dir);
     });
-    sortTable(currentSort.key, currentSort.dir);
 
     function toggleExpand(rowId) {
         const expandRow = document.getElementById(`expand-${rowId}`);

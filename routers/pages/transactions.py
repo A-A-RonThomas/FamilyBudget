@@ -28,10 +28,11 @@ def transactions(
         month = month or now.month
 
 
-    if type == "incomes":
-        rows = TransactionController.get_all_incomes(db, year=year, month=month)
-    else:
-        rows = TransactionController.get_all_purchases(db, year=year, month=month)
+    # Desktop shows both lists side by side; on mobile `type` picks which one starts visible
+    purchases = TransactionController.get_all_purchases(db, year=year, month=month)
+    incomes = TransactionController.get_all_incomes(db, year=year, month=month)
+    if type != "incomes":
+        type = "purchases"
 
 
     budget = db.query(Budget).filter(
@@ -62,7 +63,8 @@ def transactions(
             "request": request,
             "title": "Transactions",
             "active_page": "transactions",
-            "rows": rows,
+            "purchases": purchases,
+            "incomes": incomes,
             "year": year,
             "month": month,
             "default_year": now.year,
