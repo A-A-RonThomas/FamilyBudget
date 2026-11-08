@@ -117,7 +117,8 @@
     }
 </style>
 
-<form method="get" class="mb-3 d-flex gap-2 align-items-center justify-content-center flex-wrap text-on-bg">
+<form method="get" id="month-filter" class="mb-3 d-flex gap-2 align-items-center justify-content-center flex-wrap text-on-bg">
+    <input type="hidden" name="type" value="{{ type }}">
     <div class="btn-group" role="group">
         <a href="?type=purchases&year={{ year or default_year }}&month={{ month }}"
            class="btn btn-sm {% if type == 'purchases' %}btn-primary{% else %}btn-surface{% endif %}">
@@ -131,10 +132,12 @@
 
     <label for="year">Year:</label>
     <input type="number" id="year" name="year"
-           value="{{ year or default_year }}" min="2000" max="2100" class="form-control w-auto">
+           value="{{ year or default_year }}" min="2000" max="2100" class="form-control w-auto"
+           onchange="if (/^\d{4}$/.test(this.value)) this.form.requestSubmit()">
 
     <label for="month">Month:</label>
-    <select id="month" name="month" class="form-control w-auto">
+    <select id="month" name="month" class="form-control w-auto" onchange="this.form.requestSubmit()">
+        {% if not month %}<option value="" disabled selected>All months</option>{% endif %}
         <option value="1"  {% if month == 1  %}selected{% endif %}>January</option>
         <option value="2"  {% if month == 2  %}selected{% endif %}>February</option>
         <option value="3"  {% if month == 3  %}selected{% endif %}>March</option>
@@ -149,8 +152,6 @@
         <option value="12" {% if month == 12 %}selected{% endif %}>December</option>
     </select>
 
-    <button type="submit" class="btn btn-primary">Filter</button>
-    <a href="{{ request.url.path }}?year={{ default_year }}&month={{ default_month }}&type=purchases" class="btn btn-secondary">Clear</a>
     <a href="{{ request.url.path }}?type={{ type }}&view_all=true" class="btn btn-secondary">View All</a>
 </form>
 
