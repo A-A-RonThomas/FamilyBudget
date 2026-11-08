@@ -1,0 +1,236 @@
+{#
+    Shared month navigation: ‹ Month Year › with a click-to-open month/year picker.
+
+    Expects in context: year, month, month_name, prev_year, prev_month, next_year, next_month.
+    Optional: existing_months (list of {year, month}) — those months get a dot in the picker.
+
+    Navigation keeps any other query params already in the URL (e.g. the transactions
+    page's `type`), so it reads them from location at click time rather than baking
+    them into the links.
+#}
+<style>
+    .month-nav {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+        color: var(--text-on-bg);
+        margin-top: 0.5rem;
+    }
+    .month-nav a.nav-arrow {
+        width: 2rem; height: 2rem;
+        border-radius: 50%;
+        border: 1px solid rgba(255,255,255,0.3);
+        background: rgba(255,255,255,0.08);
+        color: var(--text-on-bg);
+        font-size: 1.1rem;
+        line-height: 1;
+        text-decoration: none;
+        display: flex; align-items: center; justify-content: center;
+    }
+    .month-nav a.nav-arrow:hover { background: rgba(255,255,255,0.2); color: #fff; }
+
+    .month-picker-wrap { position: relative; }
+    .month-picker-toggle {
+        background: none;
+        border: 1px solid transparent;
+        border-radius: var(--radius);
+        color: var(--text-on-bg);
+        font-weight: 600;
+        font-size: 1.1rem;
+        padding: 0.15rem 0.6rem;
+        cursor: pointer;
+        /* Fixed width (fits "September 2026 ▾") so the arrows don't shift between months */
+        width: 11.5em;
+        text-align: center;
+        white-space: nowrap;
+    }
+    .month-picker-toggle:hover,
+    .month-picker-toggle[aria-expanded="true"] {
+        border-color: rgba(255,255,255,0.3);
+        background: rgba(255,255,255,0.08);
+    }
+    .month-picker-toggle .caret { font-size: 0.7em; opacity: 0.7; margin-left: 0.25rem; }
+
+    .month-picker {
+        position: absolute;
+        top: calc(100% + 0.4rem);
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 1050;
+        width: 15.5rem;
+        max-width: calc(100vw - 2rem);
+        padding: 0.75rem;
+        background: var(--surface);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+    }
+    .month-picker[hidden] { display: none; }
+    .mp-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+    }
+    .mp-head .mp-year { font-weight: 700; }
+    .mp-head button,
+    .mp-grid button,
+    .mp-foot button {
+        border: 1px solid transparent;
+        background: none;
+        color: var(--text);
+        border-radius: var(--radius);
+        cursor: pointer;
+    }
+    .mp-head button { width: 2rem; height: 2rem; font-size: 1.1rem; line-height: 1; }
+    .mp-head button:hover,
+    .mp-grid button:hover,
+    .mp-foot button:hover { background: var(--primary-bg); }
+    .mp-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.3rem;
+    }
+    .mp-grid button {
+        position: relative;
+        padding: 0.45rem 0;
+        font-size: 0.9rem;
+    }
+    /* The calendar's current month */
+    .mp-grid button.is-today { border-color: var(--primary); }
+    /* The month being viewed */
+    .mp-grid button.is-selected,
+    .mp-grid button.is-selected:hover {
+        background: var(--primary);
+        color: #fff;
+    }
+    /* Months that have a budget */
+    .mp-grid button.has-budget::after {
+        content: '';
+        position: absolute;
+        bottom: 0.2rem;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 4px; height: 4px;
+        border-radius: 50%;
+        background: currentColor;
+        opacity: 0.6;
+    }
+    .mp-foot {
+        margin-top: 0.5rem;
+        text-align: center;
+    }
+    .mp-foot button {
+        font-size: 0.85rem;
+        color: var(--primary);
+        padding: 0.2rem 0.6rem;
+    }
+</style>
+
+{% set budget_month_keys = [] %}
+{% for m in existing_months or [] %}{% set _ = budget_month_keys.append(m.year ~ '-' ~ m.month) %}{% endfor %}
+<div class="month-nav" id="month-nav"
+     data-year="{{ year }}" data-month="{{ month }}"
+     data-budget-months='{{ budget_month_keys | tojson }}'>
+    <a class="nav-arrow" href="?year={{ prev_year }}&month={{ prev_month }}"
+       data-year="{{ prev_year }}" data-month="{{ prev_month }}" aria-label="Previous month">&lsaquo;</a>
+
+    <div class="month-picker-wrap">
+        <button type="button" class="month-picker-toggle" aria-haspopup="dialog" aria-expanded="false"
+                aria-label="Choose month">
+            {{ month_name }} {{ year }}<span class="caret">&#9662;</span>
+        </button>
+        <div class="month-picker" role="dialog" aria-label="Choose month" hidden>
+            <div class="mp-head">
+                <button type="button" class="mp-prev-year" aria-label="Previous year">&lsaquo;</button>
+                <span class="mp-year"></span>
+                <button type="button" class="mp-next-year" aria-label="Next year">&rsaquo;</button>
+            </div>
+            <div class="mp-grid">
+                {% for abbr in ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] %}
+                <button type="button" data-month="{{ loop.index }}">{{ abbr }}</button>
+                {% endfor %}
+            </div>
+            <div class="mp-foot">
+                <button type="button" class="mp-today">This month</button>
+            </div>
+        </div>
+    </div>
+
+    <a class="nav-arrow" href="?year={{ next_year }}&month={{ next_month }}"
+       data-year="{{ next_year }}" data-month="{{ next_month }}" aria-label="Next month">&rsaquo;</a>
+</div>
+
+<script>
+(function () {
+    const nav = document.getElementById('month-nav');
+    if (!nav) return;
+
+    const viewYear = parseInt(nav.dataset.year);
+    const viewMonth = parseInt(nav.dataset.month);
+    const today = new Date();
+    const todayYear = today.getFullYear(), todayMonth = today.getMonth() + 1;
+
+    let budgetMonths = new Set();
+    try { budgetMonths = new Set(JSON.parse(nav.dataset.budgetMonths || '[]')); } catch (e) {}
+
+    // Keep other query params (like `type`) that are in the URL right now
+    function goTo(year, month) {
+        const url = new URL(location.href);
+        url.searchParams.set('year', year);
+        url.searchParams.set('month', month);
+        location.href = url.toString();
+    }
+
+    nav.querySelectorAll('a.nav-arrow').forEach(a => {
+        a.addEventListener('click', e => {
+            e.preventDefault();
+            goTo(a.dataset.year, a.dataset.month);
+        });
+    });
+
+    const toggle = nav.querySelector('.month-picker-toggle');
+    const picker = nav.querySelector('.month-picker');
+    const yearLabel = picker.querySelector('.mp-year');
+    const monthButtons = picker.querySelectorAll('.mp-grid button');
+    let pickerYear = viewYear;
+
+    function render() {
+        yearLabel.textContent = pickerYear;
+        monthButtons.forEach(btn => {
+            const m = parseInt(btn.dataset.month);
+            btn.classList.toggle('is-selected', pickerYear === viewYear && m === viewMonth);
+            btn.classList.toggle('is-today', pickerYear === todayYear && m === todayMonth);
+            btn.classList.toggle('has-budget', budgetMonths.has(`${pickerYear}-${m}`));
+        });
+    }
+
+    function open() {
+        pickerYear = viewYear;
+        render();
+        picker.hidden = false;
+        toggle.setAttribute('aria-expanded', 'true');
+        picker.querySelector('.is-selected')?.focus();
+    }
+
+    function close() {
+        picker.hidden = true;
+        toggle.setAttribute('aria-expanded', 'false');
+    }
+
+    toggle.addEventListener('click', () => (picker.hidden ? open() : close()));
+    picker.querySelector('.mp-prev-year').addEventListener('click', () => { pickerYear--; render(); });
+    picker.querySelector('.mp-next-year').addEventListener('click', () => { pickerYear++; render(); });
+    picker.querySelector('.mp-today').addEventListener('click', () => goTo(todayYear, todayMonth));
+    monthButtons.forEach(btn => btn.addEventListener('click', () => goTo(pickerYear, btn.dataset.month)));
+
+    document.addEventListener('click', e => {
+        if (!picker.hidden && !nav.querySelector('.month-picker-wrap').contains(e.target)) close();
+    });
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && !picker.hidden) { close(); toggle.focus(); }
+    });
+})();
+</script>

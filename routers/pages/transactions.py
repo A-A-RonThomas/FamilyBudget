@@ -4,9 +4,10 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy import extract
 from sqlalchemy.orm import Session
 from core.database import get_db
-from controllers import TransactionController
+from controllers import TransactionController, BudgetController
 from models.database import BudgetItem, BudgetTable, Budget, FundItem
-from datetime import datetime
+from datetime import datetime, date
+from dateutil.relativedelta import relativedelta
 from calendar import month_name as cal_month_name
 
 router = APIRouter()
@@ -24,6 +25,9 @@ def transactions(
 
     year = year or now.year
     month = month or now.month
+    target_date = date(year, month, 1)
+    prev_date = target_date - relativedelta(months=1)
+    next_date = target_date + relativedelta(months=1)
 
 
     # Desktop shows both lists side by side; on mobile `type` picks which one starts visible
@@ -67,6 +71,11 @@ def transactions(
             "month": month,
             "default_year": now.year,
             "default_month": now.month,
+            "prev_year": prev_date.year,
+            "prev_month": prev_date.month,
+            "next_year": next_date.year,
+            "next_month": next_date.month,
+            "existing_months": BudgetController.get_existing_months(db),
             "month_name": cal_month_name[month] if month else "selected month",
             "type": type,
             "budget_items": budget_items,

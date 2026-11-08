@@ -11,38 +11,6 @@
         padding-bottom: 3rem;
     }
 
-    /* ── month nav ───────────────────────────────────────────── */
-    .month-nav {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 1rem;
-        color: var(--text-on-bg);
-        margin-top: 0.5rem;
-    }
-    .month-nav a.nav-arrow {
-        width: 2rem; height: 2rem;
-        border-radius: 50%;
-        border: 1px solid rgba(255,255,255,0.3);
-        background: rgba(255,255,255,0.08);
-        color: var(--text-on-bg);
-        font-size: 1.1rem;
-        line-height: 1;
-        text-decoration: none;
-        display: flex; align-items: center; justify-content: center;
-    }
-    .month-nav a.nav-arrow:hover { background: rgba(255,255,255,0.2); color: #fff; }
-    .month-nav .label { font-weight: 600; font-size: 1.1rem; }
-
-    .jump-form {
-        display: flex;
-        gap: 0.5rem;
-        align-items: center;
-        justify-content: center;
-        flex-wrap: wrap;
-        font-size: 0.85rem;
-    }
-
     /* ── month-at-a-glance ───────────────────────────────────── */
     .glance-head {
         display: flex;
@@ -141,31 +109,7 @@
 <div class="budget-page {% if budget and budget.is_locked %}locked{% endif %}">
 
     <!-- ── Month nav ─────────────────────────────────────────── -->
-    <div class="month-nav">
-        <a class="nav-arrow" href="?year={{ prev_year }}&month={{ prev_month }}" aria-label="Previous month">&lsaquo;</a>
-        <span class="label">{{ month_name }} {{ year }}</span>
-        <a class="nav-arrow" href="?year={{ next_year }}&month={{ next_month }}" aria-label="Next month">&rsaquo;</a>
-    </div>
-    <form method="get" class="jump-form text-on-bg">
-        <label for="year">Jump to year:</label>
-        <input type="number" id="year" name="year" value="{{ year }}" min="2000" max="2100" class="form-control w-auto">
-        <label for="month">month:</label>
-        <select id="month" name="month" class="form-control w-auto">
-            <option value="1"  {% if month == 1  %}selected{% endif %}>January</option>
-            <option value="2"  {% if month == 2  %}selected{% endif %}>February</option>
-            <option value="3"  {% if month == 3  %}selected{% endif %}>March</option>
-            <option value="4"  {% if month == 4  %}selected{% endif %}>April</option>
-            <option value="5"  {% if month == 5  %}selected{% endif %}>May</option>
-            <option value="6"  {% if month == 6  %}selected{% endif %}>June</option>
-            <option value="7"  {% if month == 7  %}selected{% endif %}>July</option>
-            <option value="8"  {% if month == 8  %}selected{% endif %}>August</option>
-            <option value="9"  {% if month == 9  %}selected{% endif %}>September</option>
-            <option value="10" {% if month == 10 %}selected{% endif %}>October</option>
-            <option value="11" {% if month == 11 %}selected{% endif %}>November</option>
-            <option value="12" {% if month == 12 %}selected{% endif %}>December</option>
-        </select>
-        <button type="submit" class="btn btn-sm btn-primary">Go</button>
-    </form>
+    {% include "partials/month_nav.html" %}
 
     {% if not budget %}
     <!-- No budget exists for this month — copy modal below handles this -->

@@ -106,6 +106,7 @@
     /* Desktop: both lists side by side, each scrolling on its own */
     @media (min-width: 1200px) {
         .txn-panes {
+            margin-top: 1rem;
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 1.5rem;
@@ -172,9 +173,10 @@
     }
 </style>
 
-<form method="get" id="month-filter" class="mb-3 d-flex gap-2 align-items-center justify-content-center flex-wrap text-on-bg">
-    <input type="hidden" name="type" id="type-input" value="{{ type }}">
-    <div class="btn-group d-xl-none" role="group" id="txn-toggle">
+{% include "partials/month_nav.html" %}
+
+<div class="d-flex justify-content-center mt-2 mb-3 d-xl-none">
+    <div class="btn-group" role="group" id="txn-toggle">
         <button type="button" data-kind="purchases"
            class="btn btn-sm {% if type != 'incomes' %}btn-primary{% else %}btn-surface{% endif %}">
             Purchases
@@ -184,28 +186,7 @@
             Income
         </button>
     </div>
-
-    <label for="year">Year:</label>
-    <input type="number" id="year" name="year"
-           value="{{ year or default_year }}" min="2000" max="2100" class="form-control w-auto"
-           onchange="if (/^\d{4}$/.test(this.value)) this.form.requestSubmit()">
-
-    <label for="month">Month:</label>
-    <select id="month" name="month" class="form-control w-auto" onchange="this.form.requestSubmit()">
-        <option value="1"  {% if month == 1  %}selected{% endif %}>January</option>
-        <option value="2"  {% if month == 2  %}selected{% endif %}>February</option>
-        <option value="3"  {% if month == 3  %}selected{% endif %}>March</option>
-        <option value="4"  {% if month == 4  %}selected{% endif %}>April</option>
-        <option value="5"  {% if month == 5  %}selected{% endif %}>May</option>
-        <option value="6"  {% if month == 6  %}selected{% endif %}>June</option>
-        <option value="7"  {% if month == 7  %}selected{% endif %}>July</option>
-        <option value="8"  {% if month == 8  %}selected{% endif %}>August</option>
-        <option value="9"  {% if month == 9  %}selected{% endif %}>September</option>
-        <option value="10" {% if month == 10 %}selected{% endif %}>October</option>
-        <option value="11" {% if month == 11 %}selected{% endif %}>November</option>
-        <option value="12" {% if month == 12 %}selected{% endif %}>December</option>
-    </select>
-</form>
+</div>
 
 {% macro txn_table(rows, kind) %}
     <table class="table table-striped w-auto txn-table" data-kind="{{ kind }}">
@@ -466,8 +447,7 @@
                 b.classList.toggle('btn-surface', b !== btn);
             });
             document.querySelectorAll('.txn-pane').forEach(p => p.classList.toggle('active', p.dataset.kind === kind));
-            // Keep month changes and reloads on the same list
-            document.getElementById('type-input').value = kind;
+            // Month navigation reads `type` from the URL, so this keeps it on the same list
             const url = new URL(location.href);
             url.searchParams.set('type', kind);
             history.replaceState(null, '', url);
