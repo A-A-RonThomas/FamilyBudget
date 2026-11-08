@@ -192,7 +192,6 @@
 
     <label for="month">Month:</label>
     <select id="month" name="month" class="form-control w-auto" onchange="this.form.requestSubmit()">
-        {% if not month %}<option value="" disabled selected>All months</option>{% endif %}
         <option value="1"  {% if month == 1  %}selected{% endif %}>January</option>
         <option value="2"  {% if month == 2  %}selected{% endif %}>February</option>
         <option value="3"  {% if month == 3  %}selected{% endif %}>March</option>
@@ -206,8 +205,6 @@
         <option value="11" {% if month == 11 %}selected{% endif %}>November</option>
         <option value="12" {% if month == 12 %}selected{% endif %}>December</option>
     </select>
-
-    <a href="{{ request.url.path }}?type={{ type }}&view_all=true" class="btn btn-secondary" id="view-all-link">View All</a>
 </form>
 
 {% macro txn_table(rows, kind) %}
@@ -469,10 +466,8 @@
                 b.classList.toggle('btn-surface', b !== btn);
             });
             document.querySelectorAll('.txn-pane').forEach(p => p.classList.toggle('active', p.dataset.kind === kind));
-            // Keep month changes, View All and reloads on the same list
+            // Keep month changes and reloads on the same list
             document.getElementById('type-input').value = kind;
-            const viewAll = document.getElementById('view-all-link');
-            viewAll.href = viewAll.href.replace(/type=[^&]*/, `type=${kind}`);
             const url = new URL(location.href);
             url.searchParams.set('type', kind);
             history.replaceState(null, '', url);

@@ -18,14 +18,12 @@ def transactions(
     type: str | None = Query("purchases"),
     year: int | None = Query(None),
     month: int | None = Query(None),
-    view_all: bool = Query(False),
     db: Session = Depends(get_db)
 ):
     now = datetime.now()
 
-    if not view_all:
-        year = year or now.year
-        month = month or now.month
+    year = year or now.year
+    month = month or now.month
 
 
     # Desktop shows both lists side by side; on mobile `type` picks which one starts visible
