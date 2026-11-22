@@ -4,10 +4,19 @@ from models.database import Transaction, Account, Vendor, VendorCode, BudgetItem
 from controllers.BudgetController import BudgetController
 from sqlalchemy.orm import Session
 from sqlalchemy import extract, or_
+from datetime import timezone
 
 
 def _category_name(t):
     return t.budget_item.name if t.budget_item else t.fund_item.name if t.fund_item else None
+
+
+def _imported_ts(t):
+    """Import time as unix seconds (None if unknown). SQLite hands back naive datetimes; they're UTC."""
+    if not t.imported_at:
+        return None
+    dt = t.imported_at if t.imported_at.tzinfo else t.imported_at.replace(tzinfo=timezone.utc)
+    return int(dt.timestamp())
 
 
 def _category_value(t):
@@ -64,6 +73,7 @@ class TransactionController:
                     'fund_item_id': t.fund_item_id,
                     'vendor_id': t.vendor_id,
                     'simplefin_id': t.simplefin_id,
+                    'imported_ts': _imported_ts(t),
                     'is_deleted': t.is_deleted,
                     'is_locked': (t.date.year, t.date.month) in locked,
                     'is_split': t.is_split,
@@ -112,6 +122,7 @@ class TransactionController:
                     'fund_item_id': t.fund_item_id,
                     'vendor_id': t.vendor_id,
                     'simplefin_id': t.simplefin_id,
+                    'imported_ts': _imported_ts(t),
                     'is_income': t.is_income,
                     'is_deleted': t.is_deleted,
                     'is_locked': (t.date.year, t.date.month) in locked,

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Numeric, Date, ForeignKey, Boolean, and_
+from sqlalchemy import Column, Integer, String, Numeric, Date, DateTime, ForeignKey, Boolean, and_
 from sqlalchemy.orm import relationship
 from core.database import Base
 
@@ -27,6 +27,10 @@ class Transaction(Base):
 
     is_income = Column(Boolean, default=True, nullable=False)
     is_deleted = Column(Boolean, default=False, nullable=False)
+
+    # When the row was created by a sync/import (UTC). Null for rows that predate the
+    # column, manual entries and split pieces. Drives the "New" badge on the transactions page.
+    imported_at = Column(DateTime(timezone=True), nullable=True, index=True)
 
     # Splitting: the original stays (keeping its simplefin_id for import dedupe) with
     # is_split=True, and its pieces are child transactions pointing back via parent_id.

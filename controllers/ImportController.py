@@ -1,7 +1,7 @@
 from decimal import Decimal
 from fastapi import HTTPException
 from models.database import Transaction, Account, Vendor, VendorCode, Budget, BudgetTable, BudgetItem, FundItem
-from datetime import datetime, date as date_type
+from datetime import datetime, timezone, date as date_type
 from sqlalchemy.orm import Session
 from sqlalchemy import extract, func
 import csv
@@ -118,6 +118,7 @@ class ImportController:
 
             imported = 0
             skipped = 0
+            imported_at = datetime.now(timezone.utc)
 
             from controllers.BudgetController import BudgetController
 
@@ -150,7 +151,8 @@ class ImportController:
                     account_id=account.id,
                     budget_item_id=rules["budget_item_id"],
                     fund_item_id=rules["fund_item_id"],
-                    is_deleted=rules["is_deleted"]
+                    is_deleted=rules["is_deleted"],
+                    imported_at=imported_at,
                 ))
                 imported += 1
 

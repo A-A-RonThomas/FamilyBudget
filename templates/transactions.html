@@ -45,6 +45,26 @@
     .expand-inner .field.wide {
         min-width: 220px;
     }
+    .new-badge {
+        display: inline-block;
+        margin-left: 0.4rem;
+        padding: 0.05rem 0.4rem;
+        border-radius: 999px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        line-height: 1.4;
+        vertical-align: middle;
+        background-color: var(--primary);
+        color: #fff;
+        text-decoration: none;
+    }
+    /* Rows from the sync batch the notification linked to */
+    .just-imported > td:first-child {
+        box-shadow: inset 4px 0 0 var(--primary);
+    }
+    .just-imported > td {
+        font-weight: 600;
+    }
     .unreviewed {
         background-color: var(--warn-bg) !important;
     }
@@ -203,7 +223,7 @@
         <tbody>
             {% for row in rows %}
             <!-- Main row -->
-            <tr class="transaction-row {% if not row.vendor_id and not row.is_deleted and not row.is_split %}unreviewed{% endif %} {% if kind == 'incomes' and not row.is_income %}not-income{% endif %} {% if row.is_deleted %}ignored-transaction{% endif %}"
+            <tr class="transaction-row {% if not row.vendor_id and not row.is_deleted and not row.is_split %}unreviewed{% endif %} {% if kind == 'incomes' and not row.is_income %}not-income{% endif %} {% if row.is_deleted %}ignored-transaction{% endif %} {% if new_since and row.imported_ts and row.imported_ts >= new_since %}just-imported{% endif %}"
                 id="row-{{ row.id }}"
                 data-date="{{ row.date }}"
                 data-account="{{ row.account }}"
@@ -215,7 +235,7 @@
                 data-splits='{{ (row.splits or []) | tojson }}'
                 onclick="{% if row.is_locked %}showAlert('This month is locked. Unlock it on the budget page to make changes.', 'warning'){% else %}toggleExpand('{{ row.id }}'){% endif %}">
                 <td class="date-column">{{ row.date }}</td>
-                <td class="store-col">{{ row.description | title }}</td>
+                <td class="store-col"><span class="store-name">{{ row.description | title }}</span>{% if row.imported_ts and row.imported_ts >= new_cutoff_ts %}<span class="new-badge" title="Imported in the last 24 hours">New</span>{% endif %}</td>
                 <td style="width: 100px;" class="text-end">${{ '%.2f'|format(row.amount) }}</td>
                 <td class="col-hide-mobile" style="width: 100px;">{{ row.account }}</td>
                 <td id="category-{{ row.id }}">
@@ -454,6 +474,14 @@
         });
     });
 
+    // ── Bring the notification's batch into view (runs after sorting below) ──
+    function scrollToJustImported() {
+        // First highlighted row that's actually visible (on mobile only one pane shows)
+        const first = [...document.querySelectorAll('tr.just-imported')]
+            .find(tr => tr.offsetParent !== null);
+        if (first) first.scrollIntoView({ block: 'center' });
+    }
+
     // ── Column sorting ───────────────────────────────────────────
     // Each table sorts on its own. A transaction is a main row plus its edit
     // row and any split rows; they're moved together. Date and amount sort
@@ -533,6 +561,7 @@
         });
         sortTable(table, currentSort.key, currentSort.dir);
     });
+    scrollToJustImported();
 
     function toggleExpand(rowId) {
         const expandRow = document.getElementById(`expand-${rowId}`);
@@ -597,7 +626,7 @@
             const savedDescription = mainRow.dataset.description;
 
             mainRow.cells[0].textContent = date;
-            mainRow.cells[1].textContent = description;
+            mainRow.cells[1].querySelector('.store-name').textContent = description;
             document.getElementById(`category-${rowId}`).textContent = categoryText;
             mainRow.classList.remove('unreviewed');
 
@@ -627,7 +656,7 @@
                 document.querySelectorAll('tr.transaction-row').forEach(row => {
                     const matchId = row.id.replace('row-', '');
                     if (matchId !== rowId && row.dataset.description === savedDescription) {
-                        row.cells[1].textContent = description;
+                        row.cells[1].querySelector('.store-name').textContent = description;
                         document.getElementById(`category-${matchId}`).textContent = categoryText;
                         row.classList.remove('unreviewed');
                     }
@@ -761,7 +790,7 @@
         splitRowId = rowId;
         splitTotalCents = toCents(mainRow.dataset.amount);
 
-        document.getElementById('split-store').textContent = mainRow.cells[1].textContent;
+        document.getElementById('split-store').textContent = mainRow.cells[1].querySelector('.store-name').textContent;
         document.getElementById('split-total').textContent = mainRow.dataset.amount;
         document.getElementById('split-pieces').innerHTML = '';
 

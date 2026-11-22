@@ -9,9 +9,12 @@ from models.database import BudgetItem, BudgetTable, Budget, FundItem
 from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
 from calendar import month_name as cal_month_name
+import time
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
+
+NEW_BADGE_SECONDS = 24 * 60 * 60
 
 @router.get("/", response_class=HTMLResponse, include_in_schema=False)
 def transactions(
@@ -19,6 +22,8 @@ def transactions(
     type: str | None = Query("purchases"),
     year: int | None = Query(None),
     month: int | None = Query(None),
+    # Unix time of a sync batch (from the ntfy link); rows from that batch get highlighted
+    new_since: int | None = Query(None),
     db: Session = Depends(get_db)
 ):
     now = datetime.now()
@@ -35,6 +40,14 @@ def transactions(
     incomes = TransactionController.get_all_incomes(db, year=year, month=month)
     if type != "incomes":
         type = "purchases"
+
+    # "New" badge: anything imported in the last 24 hours
+    new_cutoff_ts = int(time.time()) - NEW_BADGE_SECONDS
+    if new_since is not None:
+        is_highlighted = lambda r: r["imported_ts"] is not None and r["imported_ts"] >= new_since
+        # On mobile, open whichever list actually has the highlighted rows
+        if not any(map(is_highlighted, purchases)) and any(map(is_highlighted, incomes)):
+            type = "incomes"
 
 
     budget = db.query(Budget).filter(
@@ -78,6 +91,8 @@ def transactions(
             "existing_months": BudgetController.get_existing_months(db),
             "month_name": cal_month_name[month] if month else "selected month",
             "type": type,
+            "new_cutoff_ts": new_cutoff_ts,
+            "new_since": new_since,
             "budget_items": budget_items,
             "fund_items": fund_items
         }

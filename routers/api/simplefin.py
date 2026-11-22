@@ -1,7 +1,8 @@
 import os
 import requests
 from decimal import Decimal, InvalidOperation
-from datetime import datetime, timedelta
+from collections import Counter
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from dotenv import load_dotenv
@@ -101,6 +102,9 @@ def run_simplefin_sync(db: Session, days: int = 90, account_ids: list | None = N
 
     total_imported = 0
     total_skipped = 0
+    # Every row from this run shares one timestamp, so the notification can link to exactly this batch
+    imported_at = datetime.now(timezone.utc)
+    imported_months = Counter()  # (year, month) -> count, by the month each row was budgeted in
 
     try:
         for acct in data.get("accounts", []):
@@ -166,8 +170,10 @@ def run_simplefin_sync(db: Session, days: int = 90, account_ids: list | None = N
                     budget_item_id=rules["budget_item_id"],
                     fund_item_id=rules["fund_item_id"],
                     is_deleted=rules["is_deleted"],
+                    imported_at=imported_at,
                 ))
                 total_imported += 1
+                imported_months[(txn_date.year, txn_date.month)] += 1
 
         db.commit()
 
@@ -175,7 +181,16 @@ def run_simplefin_sync(db: Session, days: int = 90, account_ids: list | None = N
         db.rollback()
         raise
 
-    return {"imported": total_imported, "skipped": total_skipped}
+    return {
+        "imported": total_imported,
+        "skipped": total_skipped,
+        "imported_at": int(imported_at.timestamp()),
+        # Newest month first
+        "months": [
+            {"year": y, "month": m, "count": c}
+            for (y, m), c in sorted(imported_months.items(), reverse=True)
+        ],
+    }
 
 
 @router.post("/simplefin/sync")

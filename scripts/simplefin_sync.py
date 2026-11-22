@@ -4,6 +4,7 @@ Usage (from the project root):
     python -m scripts.simplefin_sync [--days N]
 """
 import argparse
+import calendar
 import logging
 import sys
 
@@ -29,10 +30,18 @@ def main() -> int:
         log.info("SimpleFIN sync complete: imported=%s skipped=%s", result["imported"], result["skipped"])
         if result["imported"]:
             count = result["imported"]
+            months = result["months"]  # newest first
+            message = f"{count} new transaction{'s' if count != 1 else ''} imported from SimpleFIN."
+            if len(months) > 1:
+                # Late-posting charges can land in a different month than the current one
+                breakdown = ", ".join(f"{m['count']} in {calendar.month_name[m['month']]}" for m in months)
+                message += f" ({breakdown})"
+            # Open the newest month with this batch highlighted
+            newest = months[0]
             send_notification(
                 title="New transactions",
-                message=f"{count} new transaction{'s' if count != 1 else ''} imported from SimpleFIN.",
-                click_path="/",
+                message=message,
+                click_path=f"/?year={newest['year']}&month={newest['month']}&new_since={result['imported_at']}",
                 tags=["moneybag"]
             )
         return 0
